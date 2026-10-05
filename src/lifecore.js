@@ -76,10 +76,11 @@ export class Life {
       o.position.copy(pos);
       o.rotation.set(it.baseRot.x, ry, it.baseRot.z);
       if (it.wob) {
-        const { p: wp = 0.02, r: wr = 0.06, f = 1.2, seed = 1 } = it.wob;
-        o.position.x += noise1(age * f, seed) * wp;
-        o.position.z += noise1(age * f, seed + 7) * wp;
-        o.rotation.y += noise1(age * f * 0.8, seed + 3) * wr;
+        const { p: wp = 0.02, r: wr = 0.06, f = 1.2, seed = 1, until = Infinity } = it.wob;
+        const wa = Math.min(age, until); // a chair nobody moves any more
+        o.position.x += noise1(wa * f, seed) * wp;
+        o.position.z += noise1(wa * f, seed + 7) * wp;
+        o.rotation.y += noise1(wa * f * 0.8, seed + 3) * wr;
       }
       if (it.follow) {
         const f = it.follow, c = Math.cos(f.rotation.y), sn = Math.sin(f.rotation.y);

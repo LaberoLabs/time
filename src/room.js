@@ -63,6 +63,11 @@ function tableHistory() {
     for (let k = 0; k < 4; k++) x.lineTo(px + (r() - 0.5) * 70, py + (r() - 0.5) * 40);
     x.stroke();
   }
+  // later life (drawn last so the earlier pattern is unchanged)
+  for (let i = 0; i < 14; i++) ring(-0.4 + r() * 0.9, -0.25 + r() * 0.5, 46 + i * 2.1, 0.042);
+  for (let i = 0; i < 10; i++) ring(-0.3 + r() * 0.2, -0.28 + r() * 0.12, 77 + i * 1.3, 0.042); // one place, later
+  for (let i = 0; i < 25; i++) scratch(45 + r() * 8, (r() - 0.5) * 1.4, 0.05 + r() * 0.35);
+  for (let i = 0; i < 20; i++) scratch(53 + r() * 37, (r() - 0.5) * 1.5, (r() - 0.5) * 0.8);
   x.globalCompositeOperation = 'source-over';
   const t = toTex(c, { srgb: false });
   t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
@@ -118,13 +123,13 @@ export function buildRoom(scene, ctx) {
     std('#f2ece6', 0.66, { map: fl.map, bumpMap: fl.bump, bumpScale: 1.2 }),
     floorHistory(), ctx.ageU, /* glsl */`
       { vec4 hs = texture2D(uHist, vHUv);
-        float wear = clamp((uAgeEnc - hs.r) * 2.2, 0., 1.) * (1. - hs.r);
+        float wear = clamp((uAgeEnc - hs.r) * 7.15, 0., 1.) * (1. - hs.r);
         float scuff = smoothstep(hs.g, hs.g + 0.01, uAgeEnc);
         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.12, 1.08, 1.02) + 0.015, wear * 0.55);
         roughnessFactor = mix(roughnessFactor, 0.8, wear * 0.7);
         diffuseColor.rgb *= 1. - scuff * 0.22;
         roughnessFactor = mix(roughnessFactor, 0.9, scuff);
-        float years = clamp((uAgeEnc) / 0.98, 0., 1.);
+        float y45 = uAgeEnc / 0.3077; float years = min(y45, 1.) + max(y45 - 1., 0.) * 0.12;
         diffuseColor.rgb *= 1.0 - years * 0.05; }`
   );
   const pl = plasterTextures();
@@ -340,7 +345,7 @@ export function buildRoom(scene, ctx) {
       roughnessFactor = mix(roughnessFactor, 0.5, max(sc * 0.5, st * 0.6));
       diffuseColor.rgb *= 1. - st * 0.28;
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.25, 0.08, 0.06), cr * 0.45);
-      float years = clamp(uAgeEnc / 0.98, 0., 1.);
+      float y45 = uAgeEnc / 0.3077; float years = min(y45, 1.) + max(y45 - 1., 0.) * 0.12;
       diffuseColor.rgb *= 1. - years * 0.08; }`);
   const tcx = TABLE.x, tcz = TABLE.z, tw = 1.7, td = 0.9, th = TABLE.y;
   const top = mesh(new THREE.BoxGeometry(tw, 0.05, td), [darkWood, darkWood, topMat, darkWood, darkWood, darkWood], 0, th - 0.025, 0);

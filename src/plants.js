@@ -17,12 +17,12 @@ export function heroPlant(parent, at) {
   const p1m = fadeable(pot1), p2m = fadeable(pot2);
 
   const r = rng(404);
-  const vigor = (a) => keys(a, [[20, 0.5], [25, 0.62], [30, 0.82], [34, 0.95], [38, 1.12], [45, 1.32]]);
+  const vigor = (a) => keys(a, [[20, 0.5], [25, 0.62], [30, 0.82], [34, 0.95], [38, 1.12], [45, 1.32], [60, 1.4], [90, 1.42]]);
   const leaves = [];
   const leafGreen = C('#4d6c3c'), leafOld = C('#a8944e');
-  const N = 34;
+  const N = 100;
   for (let i = 0; i < N; i++) {
-    const birth = 19.5 + i * (25 / N) + r() * 0.5;
+    const birth = (i < 34 ? 19.5 + i * (25 / 34) : 44.5 + (i - 34) * (45 / (N - 34))) + r() * 0.5;
     const life = 6 + r() * 5;
     const az = (i * 2.399) % (Math.PI * 2); // golden angle
     const g = new THREE.Group();

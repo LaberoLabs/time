@@ -19,7 +19,7 @@ export function toTex(c, { srgb = true, repeat = [1, 1], aniso = 8 } = {}) {
 }
 
 // time encoding for "history" maps: age -> byte. 255 = never.
-export const encAge = (age) => Math.round(((age - 25) / 20) * 250);
+export const encAge = (age) => Math.round(((age - 25) / 65) * 250);
 
 function noiseFill(ctx, w, h, alpha, scale, r, light = false) {
   const n = Math.floor((w * h) / (scale * scale) * 0.9);
@@ -198,6 +198,19 @@ export function rugTexture() {
     const px = r() * W, py = r() * H, a = r() * 6.28;
     x.beginPath(); x.moveTo(px, py); x.lineTo(px + Math.cos(a) * 5, py + Math.sin(a) * 5); x.stroke();
   }
+  return toTex(c);
+}
+
+// a later rug: flat-woven stripes, muted
+export function rugTexture2() {
+  const W = 1024, H = 1536, r = rng(23);
+  const [c, x] = canvas(W, H);
+  x.fillStyle = '#b9a58c'; x.fillRect(0, 0, W, H);
+  const cols = ['#7d8a8c', '#a4553a', '#d8cbb4', '#5c6670', '#c49a62'];
+  let y = 60;
+  while (y < H - 60) { const h = 14 + r() * 70; x.fillStyle = cols[Math.floor(r() * cols.length)]; x.globalAlpha = 0.7 + r() * 0.3; x.fillRect(40, y, W - 80, h); y += h + 6 + r() * 20; }
+  x.globalAlpha = 1;
+  for (let i = 0; i < 40000; i++) { x.fillStyle = r() < 0.5 ? 'rgba(255,250,240,0.08)' : 'rgba(30,20,10,0.08)'; x.fillRect(r() * W, r() * H, 3, 1); }
   return toTex(c);
 }
 

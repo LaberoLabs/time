@@ -9,6 +9,7 @@ const oakTex = woodTexture([30, 40, 42], 15, 512, 90);
 const oak = () => std('#ffffff', 0.55, { map: oakTex });
 
 // ------------------------------------------------------------------ chairs (front = +z)
+export const rboxGeo = (w, h, d, r) => rbox(w, h, d, r, 2);
 export function chairSpindle(mat = oak()) {
   const g = G();
   const sh = 0.45, sw = 0.44, sd = 0.42;
@@ -503,5 +504,100 @@ export function pot(r = 0.16, h = 0.3, mat = potMat()) {
   g.add(mesh(lathe([[0, 0], [r * 0.78, 0], [r * 0.8, 0.01], [r * 0.98, h * 0.85], [r * 1.06, h * 0.86], [r * 1.07, h], [r * 0.98, h], [r * 0.95, h * 0.92], [0, h * 0.92]], 40), mat));
   g.add(mesh(new THREE.CircleGeometry(r * 0.94, 32).rotateX(-Math.PI / 2), std('#2a1c14', 1), 0, h * 0.9, 0));
   shade(g);
+  return g;
+}
+
+// ------------------------------------------------------------------ later life
+export function headphones(color = '#2a2a2e') {
+  const g = G();
+  const m = std(color, 0.5);
+  const band = mesh(new THREE.TorusGeometry(0.085, 0.009, 8, 24, Math.PI), m, 0, 0.03, 0); band.rotation.x = -Math.PI / 2 + 0.25; g.add(band);
+  for (const s of [-1, 1]) { const cup = mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.03, 20), m, s * 0.085, 0.02, 0); g.add(cup); }
+  shade(g); g.add(contact(0.25, 0.12, 0.4, 0.001));
+  return g;
+}
+export function guitar() {
+  const g = G();
+  const wood = std('#ffffff', 0.4, { map: woodTexture([28, 55, 48], 91, 512, 50) });
+  const dark = std('#2a1c14', 0.5);
+  const lower = mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.1, 40), wood, 0, 0.22, 0); lower.rotation.x = Math.PI / 2; g.add(lower);
+  const upper = mesh(new THREE.CylinderGeometry(0.145, 0.145, 0.1, 40), wood, 0, 0.5, 0); upper.rotation.x = Math.PI / 2; g.add(upper);
+  const hole = mesh(new THREE.CircleGeometry(0.045, 24), dark, 0, 0.4, 0.0505); g.add(hole);
+  g.add(mesh(rbox(0.05, 0.5, 0.025, 0.008), dark, 0, 0.88, 0.02));
+  g.add(mesh(rbox(0.07, 0.15, 0.025, 0.01), dark, 0, 1.18, 0.02));
+  g.rotation.x = -0.2;
+  shade(g); return g;
+}
+export function cardboardBox(w = 0.5, h = 0.36, d = 0.38, open = false) {
+  const g = G();
+  const m = std('#b88d5e', 0.9, { bumpMap: linenBump(71), bumpScale: 0.3 });
+  g.add(mesh(rbox(w, h, d, 0.01), m, 0, h / 2, 0));
+  g.add(mesh(new THREE.BoxGeometry(w * 1.002, 0.004, 0.05), std('#cdbb94', 0.4), 0, h + 0.001, 0));
+  if (open) for (const s of [-1, 1]) { const f = mesh(new THREE.BoxGeometry(w, 0.004, d / 2), m, 0, h, s * d / 2); f.rotation.x = s * 1.1; f.position.z += s * 0.08; f.position.y += 0.08; g.add(f); }
+  shade(g); g.add(contact(w + 0.2, d + 0.2, 0.6));
+  return g;
+}
+export function jigsaw(seed = 3) {
+  const [c, x] = canvas(512, 360);
+  const r = rng(seed);
+  x.fillStyle = '#d8c9ae'; x.fillRect(0, 0, 512, 360);
+  // a picture of the sea, half done
+  const sky = x.createLinearGradient(0, 0, 0, 200); sky.addColorStop(0, '#9fb6cc'); sky.addColorStop(1, '#f0c99e');
+  for (let j = 0; j < 9; j++) for (let i = 0; i < 12; i++) {
+    const done = (i < 7 && j > 1) || (j > 5) || r() < 0.25;
+    if (!done) continue;
+    x.fillStyle = j < 5 ? sky : '#4d6f8a'; x.globalAlpha = 1;
+    x.fillRect(i * 42 + 4, j * 40, 42, 40);
+    x.strokeStyle = 'rgba(0,0,0,0.18)'; x.strokeRect(i * 42 + 4, j * 40, 42, 40);
+  }
+  for (let k = 0; k < 40; k++) { x.fillStyle = r() < 0.5 ? '#6f8aa0' : '#e9c49a'; x.fillRect(380 + r() * 120, r() * 340, 22, 20); }
+  const g = G();
+  const p = mesh(new THREE.PlaneGeometry(0.62, 0.44).rotateX(-Math.PI / 2), std('#ffffff', 0.7, { map: toTex(c) }), 0, 0.003, 0);
+  p.receiveShadow = true; g.add(p);
+  g.add(mesh(rbox(0.3, 0.05, 0.2, 0.004), std('#3d5a73', 0.6), 0.44, 0.025, -0.1));
+  return g;
+}
+export function tablet() {
+  const g = G();
+  g.add(mesh(rbox(0.25, 0.008, 0.175, 0.01), std('#1c1c1e', 0.3, { metalness: 0.4 }), 0, 0.004, 0));
+  shade(g); g.add(contact(0.3, 0.22, 0.35, 0.001));
+  return g;
+}
+export function newspaper(seed = 5) {
+  const [c, x] = canvas(256, 180);
+  const r = rng(seed);
+  x.fillStyle = '#e4ddcf'; x.fillRect(0, 0, 256, 180);
+  x.fillStyle = 'rgba(40,36,32,0.8)'; x.fillRect(12, 10, 232, 14);
+  for (let col = 0; col < 3; col++) for (let l = 0; l < 18; l++) { x.fillStyle = `rgba(60,55,50,${0.25 + r() * 0.3})`; x.fillRect(12 + col * 80, 34 + l * 8, 70 * (0.7 + r() * 0.3), 3); }
+  // a crossword, half filled
+  for (let i = 0; i < 7; i++) for (let j = 0; j < 7; j++) { x.fillStyle = (i * 3 + j * 5) % 4 === 0 ? '#222' : '#f4efe4'; x.fillRect(170 + i * 10, 100 + j * 10, 9, 9); }
+  const g = G();
+  const p = mesh(new THREE.PlaneGeometry(0.34, 0.24, 6, 2).rotateX(-Math.PI / 2), std('#ffffff', 0.9, { map: toTex(c), side: THREE.DoubleSide }), 0, 0.004, 0);
+  p.receiveShadow = true; p.castShadow = true; g.add(p);
+  const pen = mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.13, 8), std('#1d2a44', 0.4), 0.12, 0.008, 0.05); pen.rotation.set(Math.PI / 2, 0, 0.6); pen.castShadow = true; g.add(pen);
+  return g;
+}
+// small pot of herbs/flowers for the balcony; `dry` 0..1 browns it
+export function herbPot(seed = 1, color = '#5f7d45') {
+  const g = pot(0.1, 0.17, std('#b5674a', 0.85));
+  const r = rng(seed);
+  const leafM = std(color, 0.7, { side: THREE.DoubleSide });
+  leafM.name = 'leaf';
+  const lg = leafGeo(0.07, 0.03, { shape: 'lance', segL: 4, segW: 2 });
+  for (let i = 0; i < 30; i++) {
+    const lf = mesh(lg, leafM, (r() - 0.5) * 0.12, 0.16 + r() * 0.12, (r() - 0.5) * 0.12);
+    lf.rotation.set(-r() * 1.2, r() * 6.28, 0); lf.castShadow = true; g.add(lf);
+  }
+  g.userData.leafM = leafM;
+  return g;
+}
+export function cuttingJar() {
+  const g = G();
+  g.add(mesh(lathe([[0, 0], [0.035, 0], [0.037, 0.09], [0.03, 0.11], [0.032, 0.12], [0, 0.12]], 24), new THREE.MeshPhysicalMaterial({ color: C('#e4efe6'), roughness: 0.05, transparent: true, opacity: 0.3, depthWrite: false, envMapIntensity: 2 })));
+  g.add(mesh(new THREE.CylinderGeometry(0.033, 0.033, 0.07, 20), std('#b9c9bd', 0.1, { transparent: true, opacity: 0.4 }), 0, 0.035, 0));
+  g.add(mesh(tube([[0, 0.02, 0], [0.01, 0.14, 0], [0.02, 0.22, 0.01]], 0.003, 8, 4), std('#4f6a3c', 0.6)));
+  const lm = std('#4d6c3c', 0.5, { side: THREE.DoubleSide });
+  for (const [y, ry, s] of [[0.2, 0.4, 0.09], [0.16, 2.7, 0.07]]) { const l = mesh(leafGeo(s, s * 0.45, { curl: 0.2 }), lm, 0.015, y, 0.008); l.rotation.set(-0.7, ry, 0); g.add(l); }
+  shade(g); g.add(contact(0.1, 0.1, 0.35, 0.001));
   return g;
 }

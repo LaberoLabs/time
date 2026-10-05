@@ -6,7 +6,7 @@ import { buildPost } from './post.js';
 import { clamp } from './util.js';
 import { encAge } from './tex.js';
 
-const AGE0 = 25, AGE1 = 45;
+const AGE0 = 25, AGE1 = 90;
 
 // ------------------------------------------------------------------ renderer
 const canvas = document.getElementById('c');
