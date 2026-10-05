@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { buildExterior } from './exterior.js';
 import { buildRoom } from './room.js';
-import { buildLife } from './life.js';
+import { buildLife, BEATS } from './life.js';
 import { buildPost } from './post.js';
 import { clamp } from './util.js';
 import { encAge } from './tex.js';
@@ -25,6 +25,8 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#0d0907');
+// a little warm air in the room: separates near from far without flattening it
+scene.fog = new THREE.FogExp2(new THREE.Color('#5a3626'), 0.035);
 
 const camera = new THREE.PerspectiveCamera(43, innerWidth / innerHeight, 0.05, 6000);
 const CAM = new THREE.Vector3(0.2, 1.47, 4.75);
@@ -80,14 +82,29 @@ resize();
 // ------------------------------------------------------------------ scroll = time
 const hintEl = document.getElementById('hint');
 const maxScroll = () => document.documentElement.scrollHeight - innerHeight;
-const ageFromScroll = () => AGE0 + (AGE1 - AGE0) * clamp(scrollY / Math.max(1, maxScroll()), 0, 1);
+// Scroll is not linear in years: time slows around the moments worth seeing (arrival -> hold -> departure).
+const WARP = (() => {
+  const N = 13000, A = new Float64Array(N + 1), Cm = new Float64Array(N + 1);
+  const box = (a, a0, a1) => { const e = 0.12; const t0 = clamp((a - (a0 - e)) / e, 0, 1), t1 = clamp(((a1 + e) - a) / e, 0, 1); return Math.min(t0 * t0 * (3 - 2 * t0), t1 * t1 * (3 - 2 * t1)); };
+  let c = 0;
+  for (let i = 0; i <= N; i++) {
+    const a = AGE0 + (AGE1 - AGE0) * (i / N);
+    let d = 1; for (const [a0, a1, w] of BEATS) if (a > a0 - 0.2 && a < a1 + 0.2) d = Math.max(d, 1 + w * box(a, a0, a1));
+    if (i) c += d * (AGE1 - AGE0) / N;
+    A[i] = a; Cm[i] = c;
+  }
+  return { total: c, toAge(p) { const t = p * c; let lo = 0, hi = N; while (hi - lo > 1) { const m = (lo + hi) >> 1; (Cm[m] < t ? (lo = m) : (hi = m)); } const f = (t - Cm[lo]) / Math.max(1e-9, Cm[hi] - Cm[lo]); return A[lo] + (A[hi] - A[lo]) * f; },
+    toP(a) { const i = clamp(Math.round(((a - AGE0) / (AGE1 - AGE0)) * N), 0, N); return Cm[i] / c; } };
+})();
+document.getElementById('scroll').style.height = Math.round(5400 * WARP.total / (AGE1 - AGE0)) + 'vh';
+const ageFromScroll = () => WARP.toAge(clamp(scrollY / Math.max(1, maxScroll()), 0, 1));
 
 const params = new URLSearchParams(location.search);
 let age = AGE0, target = AGE0;
 if (params.has('age')) {
   const a = clamp(parseFloat(params.get('age')), AGE0, AGE1);
   history.scrollRestoration = 'manual';
-  requestAnimationFrame(() => scrollTo(0, ((a - AGE0) / (AGE1 - AGE0)) * maxScroll()));
+  requestAnimationFrame(() => scrollTo(0, WARP.toP(a) * maxScroll()));
   age = target = a;
 }
 addEventListener('scroll', () => {
@@ -97,7 +114,7 @@ addEventListener('scroll', () => {
 
 // debug / screenshot hook
 window.__scene = scene; window.__post = post; window.__THREE = THREE; window.__renderer = renderer;
-window.__time = { setAge(a) { target = age = clamp(a, AGE0, AGE1); scrollTo(0, ((age - AGE0) / (AGE1 - AGE0)) * maxScroll()); }, get age() { return age; } };
+window.__time = { setAge(a) { target = age = clamp(a, AGE0, AGE1); scrollTo(0, WARP.toP(age) * maxScroll()); }, get age() { return age; } };
 
 // ------------------------------------------------------------------ loop
 const clock = new THREE.Clock();

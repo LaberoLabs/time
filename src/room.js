@@ -1,8 +1,8 @@
 // The room: shell, French doors, balcony, curtains, light, and the furniture that never leaves.
 import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
-import { std, shade, boxUV, rbox, mesh, lathe, contact, pillowGeo, drapeGeo, C } from './build.js';
-import { floorTextures, plasterTextures, woodTexture, linenBump, rugTexture, canvas, toTex, encAge } from './tex.js';
+import { std, shade, boxUV, rbox, mesh, lathe, contact, pillowGeo, drapeGeo, fabric, C } from './build.js';
+import { floorTextures, plasterTextures, woodTexture, linenBump, rugTexture, canvas, toTex, encAge, sheerAlpha, clothMap } from './tex.js';
 import { rng } from './util.js';
 
 export const TABLE = { x: 1.3, z: 2.15, y: 0.76 };
@@ -120,7 +120,7 @@ export function buildRoom(scene, ctx) {
   // ------------------------------------------------------------ materials
   const fl = floorTextures();
   const floorMat = withHistory(
-    std('#f2ece6', 0.66, { map: fl.map, bumpMap: fl.bump, bumpScale: 1.2 }),
+    std('#f2ece6', 0.78, { map: fl.map, bumpMap: fl.bump, bumpScale: 1.2, roughnessMap: fl.rough }),
     floorHistory(), ctx.ageU, /* glsl */`
       { vec4 hs = texture2D(uHist, vHUv);
         float wear = clamp((uAgeEnc - hs.r) * 7.15, 0., 1.) * (1. - hs.r);
@@ -141,7 +141,7 @@ export function buildRoom(scene, ctx) {
   // ------------------------------------------------------------ floor + ceiling + walls
   const floorGeo = new THREE.PlaneGeometry(x1 - x0, z1).rotateX(-Math.PI / 2);
   // stretch base map uv by real size, keep raw uv for history (map transform handles repeat)
-  fl.map.repeat.set((x1 - x0) / 4, z1 / 4); fl.bump.repeat.copy(fl.map.repeat);
+  fl.map.repeat.set((x1 - x0) / 4, z1 / 4); fl.bump.repeat.copy(fl.map.repeat); fl.rough.repeat.copy(fl.map.repeat);
   const floor = mesh(floorGeo, floorMat, (x0 + x1) / 2, 0, z1 / 2);
   floor.receiveShadow = true;
   room.add(floor);
@@ -241,19 +241,19 @@ export function buildRoom(scene, ctx) {
   }
 
   // ------------------------------------------------------------ curtains (animated)
-  const curtainMat = new THREE.MeshStandardMaterial({
-    color: C('#f1e6d6'), roughness: 0.9, side: THREE.DoubleSide, transparent: true, opacity: 0.72,
-    emissive: C('#ff9c5c'), emissiveIntensity: 0.12, bumpMap: linenBump(3), bumpScale: 0.3, depthWrite: false,
+  const curtainMat = fabric('#f1e6d6', {
+    side: THREE.DoubleSide, transparent: true, opacity: 0.86, alphaMap: sheerAlpha(),
+    emissive: C('#ff9c5c'), emissiveIntensity: 0.14, bumpMap: linenBump(3), bumpScale: 0.25, depthWrite: false, sheen: 0.5,
   });
   ctx.curtainMat = curtainMat;
   const curtains = [];
   const mkCurtain = (cx, w, phase) => {
-    const W = w, H = 2.66, sx = 36, sy = 50;
+    const W = w, H = 2.88, sx = 40, sy = 56;
     const g = new THREE.PlaneGeometry(W, H, sx, sy);
     g.translate(0, -H / 2, 0);
     const base = g.attributes.position.array.slice();
-    const m = mesh(g, curtainMat, cx, 2.72, 0.09);
-    m.castShadow = true; m.receiveShadow = true; m.userData.noAO = true;
+    const m = mesh(g, curtainMat, cx, 2.95, 0.09);
+    m.castShadow = true; m.receiveShadow = false; m.userData.noAO = true;
     m.customDepthMaterial = new THREE.MeshDepthMaterial({ alphaHash: true, opacity: 0.45 });
     m.renderOrder = 3;
     room.add(m);
@@ -261,7 +261,7 @@ export function buildRoom(scene, ctx) {
   };
   mkCurtain(D.x0 - 0.28, 0.48, 0.0);
   mkCurtain(D.x1 + 0.52, 0.48, 2.1);
-  const rod = mesh(new THREE.CylinderGeometry(0.012, 0.012, 3.1), iron, (D.x0 + D.x1) / 2 + 0.12, 2.74, 0.09);
+  const rod = mesh(new THREE.CylinderGeometry(0.01, 0.01, 3.1), iron, (D.x0 + D.x1) / 2 + 0.12, 2.965, 0.09);
   rod.rotation.z = Math.PI / 2; shade(rod); room.add(rod);
 
   const updateCurtains = (t) => {
@@ -298,15 +298,15 @@ export function buildRoom(scene, ctx) {
   for (const [lx, lz] of [[bx0 + 0.05, bz1 - 0.05], [bx1 - 0.05, bz1 - 0.05]]) bed.add(mesh(new THREE.BoxGeometry(0.06, 0.1, 0.06), woodMat, lx, 0.05, lz));
   bed.add(mesh(rbox(bw + 0.08, 1.05, 0.06, 0.015), woodMat, bcx, 0.525, 0.05));
   const linenB = linenBump(4);
-  const sheetMat = std('#efe9df', 0.95, { bumpMap: linenB, bumpScale: 0.4 });
+  const sheetMat = fabric('#efe9df', { map: clothMap('#f1ece4', 6, false), bumpMap: linenB, bumpScale: 0.4 });
   bed.add(mesh(rbox(bw - 0.04, 0.22, bd - 0.1, 0.06, 4), sheetMat, bcx, 0.42, bz0 + 0.06 + (bd - 0.1) / 2));
-  const duvetMat = std('#f3eee6', 0.95, { bumpMap: linenB, bumpScale: 0.5 });
+  const duvetMat = fabric('#ffffff', { map: clothMap('#f3eee6', 4, true), bumpMap: linenB, bumpScale: 0.6 });
   const duvet = mesh(drapeGeo(bw - 0.02, bd - 0.62, 0.26, { seg: 110, wr: 0.024, seed: 2, sag: 0.0, freq: 0.8 }), duvetMat, bcx, 0.565, bz0 + 0.62 + (bd - 0.62) / 2 - 0.02);
   bed.add(duvet);
   // folded-back top edge of duvet
   const fold = mesh(rbox(bw - 0.02, 0.06, 0.2, 0.03, 4), duvetMat, bcx, 0.57, bz0 + 0.66);
   fold.rotation.x = 0.1; bed.add(fold);
-  const pilMat = std('#fbf7f0', 0.95, { bumpMap: linenB, bumpScale: 0.3, emissive: C('#3a2a20'), emissiveIntensity: 0.25 });
+  const pilMat = fabric('#fbf7f0', { map: clothMap('#faf6ef', 5, false), bumpMap: linenB, bumpScale: 0.35, emissive: C('#3a2a20'), emissiveIntensity: 0.22 });
   const p1 = mesh(pillowGeo(0.66, 0.22, 0.46), pilMat, bx0 + 0.42, 0.64, 0.3); p1.rotation.set(-0.55, 0.05, 0.03); bed.add(p1);
   const p2 = mesh(pillowGeo(0.66, 0.2, 0.46), pilMat, bx1 - 0.4, 0.63, 0.31); p2.rotation.set(-0.5, -0.06, -0.03); bed.add(p2);
   shade(bed);
@@ -332,14 +332,14 @@ export function buildRoom(scene, ctx) {
   ctx.lampLight = lampLight; ctx.shadeMat = shadeMat;
 
   // rug
-  const rugMat = std('#ffffff', 1.0, { map: rugTexture(), bumpMap: linenBump(8), bumpScale: 0.8 });
+  const rugMat = fabric('#ffffff', { map: rugTexture(), bumpMap: linenBump(8), bumpScale: 0.9, sheen: 0.35 });
   const rug = mesh(rbox(2.2, 0.014, 3.0, 0.006, 2), rugMat, -0.95, 0.007, 2.75);
   rug.rotation.y = 0.05; rug.receiveShadow = true; room.add(rug);
   ctx.rug = rug; ctx.rugMat = rugMat;
 
   // table
   const table = new THREE.Group(); room.add(table);
-  const topMat = withHistory(std('#ffffff', 0.36, { map: woodTexture([24, 42, 30], 12, 1024, 260) }), tableHistory(), ctx.ageU, /* glsl */`
+  const topMat = withHistory(new THREE.MeshPhysicalMaterial({ color: C('#ffffff'), roughness: 0.42, map: woodTexture([24, 42, 30], 12, 1024, 260), clearcoat: 0.32, clearcoatRoughness: 0.32 }), tableHistory(), ctx.ageU, /* glsl */`
     { vec4 hs = texture2D(uHist, vHUv);
       float sc = smoothstep(hs.r, hs.r + 0.006, uAgeEnc);
       float st = smoothstep(hs.g, hs.g + 0.01, uAgeEnc);
@@ -351,8 +351,10 @@ export function buildRoom(scene, ctx) {
       float y45 = uAgeEnc / 0.3077; float years = min(y45, 1.) + max(y45 - 1., 0.) * 0.12;
       diffuseColor.rgb *= 1. - years * 0.08; }`);
   const tcx = TABLE.x, tcz = TABLE.z, tw = 1.7, td = 0.9, th = TABLE.y;
-  const top = mesh(new THREE.BoxGeometry(tw, 0.05, td), [darkWood, darkWood, topMat, darkWood, darkWood, darkWood], 0, th - 0.025, 0);
+  const top = mesh(rbox(tw, 0.05, td, 0.012, 4), darkWood, 0, th - 0.025, 0);
   table.add(top);
+  const topFace = mesh(new THREE.PlaneGeometry(tw - 0.02, td - 0.02).rotateX(-Math.PI / 2), topMat, 0, th + 0.0004, 0);
+  topFace.receiveShadow = true; table.add(topFace);
   table.add(mesh(new THREE.BoxGeometry(tw - 0.2, 0.09, td - 0.2), darkWood, 0, th - 0.095, 0));
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
     const leg = mesh(new THREE.CylinderGeometry(0.03, 0.022, th - 0.05, 12), darkWood, sx * (tw / 2 - 0.11), (th - 0.05) / 2, sz * (td / 2 - 0.1));
@@ -368,11 +370,11 @@ export function buildRoom(scene, ctx) {
   const shelf = new THREE.Group(); room.add(shelf);
   const sx0 = 2.25, sw = 1.25, sdp = 0.34, sh = 2.32;
   const sMat = darkWood;
-  shelf.add(mesh(new THREE.BoxGeometry(0.03, sh, sdp), sMat, sx0 + 0.015, sh / 2, sdp / 2));
-  shelf.add(mesh(new THREE.BoxGeometry(0.03, sh, sdp), sMat, sx0 + sw - 0.015, sh / 2, sdp / 2));
+  shelf.add(mesh(rbox(0.03, sh, sdp, 0.006, 2), sMat, sx0 + 0.015, sh / 2, sdp / 2));
+  shelf.add(mesh(rbox(0.03, sh, sdp, 0.006, 2), sMat, sx0 + sw - 0.015, sh / 2, sdp / 2));
   shelf.add(mesh(new THREE.BoxGeometry(sw, sh, 0.012), sMat, sx0 + sw / 2, sh / 2, 0.006));
   ctx.shelfYs = [0.06, 0.44, 0.82, 1.2, 1.58, 1.96];
-  for (const y of [...ctx.shelfYs, sh - 0.015]) shelf.add(mesh(new THREE.BoxGeometry(sw, 0.03, sdp), sMat, sx0 + sw / 2, y, sdp / 2));
+  for (const y of [...ctx.shelfYs, sh - 0.015]) shelf.add(mesh(rbox(sw - 0.004, 0.03, sdp, 0.005, 2), sMat, sx0 + sw / 2, y, sdp / 2));
   shade(shelf);
   const shContact = contact(sw + 0.3, 0.7, 0.6); shContact.position.set(sx0 + sw / 2, 0.003, 0.22); room.add(shContact);
   ctx.shelf = { x0: sx0 + 0.03, x1: sx0 + sw - 0.03, d: sdp };

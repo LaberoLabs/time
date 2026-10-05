@@ -19,6 +19,16 @@ export function fixNormals(g) {
   return g;
 }
 
+// woven cloth: sheen gives the soft rim that reads as fabric
+export function fabric(color, extra = {}) {
+  const c = C(color);
+  return new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.92, metalness: 0, sheen: 0.7, sheenRoughness: 0.55, sheenColor: c.clone().lerp(new THREE.Color('#ffffff'), 0.45), ...extra });
+}
+// glazed ceramic / varnished surfaces
+export function glazed(color, extra = {}) {
+  return new THREE.MeshPhysicalMaterial({ color: C(color), roughness: 0.38, metalness: 0, clearcoat: 0.7, clearcoatRoughness: 0.18, ...extra });
+}
+
 export function shade(o, cast = true, recv = true) {
   o.traverse((m) => { if (m.isMesh) { m.castShadow = cast; m.receiveShadow = recv; } });
   return o;

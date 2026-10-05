@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { std, mesh, leafGeo, tube, shade, C } from './build.js';
 import { pot } from './objects.js';
+import { leafTexture } from './tex.js';
 import { rng, smooth, keys, clamp, lerp } from './util.js';
 
 // The big paddle-leaf plant by the door. Bought small at 25, repotted at ~34.
@@ -19,7 +20,8 @@ export function heroPlant(parent, at) {
   const r = rng(404);
   const vigor = (a) => keys(a, [[20, 0.5], [25, 0.62], [30, 0.82], [34, 0.95], [38, 1.12], [45, 1.32], [50, 1.28], [55, 1.04], [90, 1.0]]);
   const leaves = [];
-  const leafGreen = C('#4d6c3c'), leafOld = C('#a8944e');
+  const leafGreen = C('#ffffff'), leafOld = C('#e8c27a');
+  const leafTexs = [leafTexture(1), leafTexture(2), leafTexture(3)];
   const N = 100;
   for (let i = 0; i < N; i++) {
     const birth = (i < 34 ? 19.5 + i * (25 / 34) : 44.5 + (i - 34) * (45 / (N - 34))) + r() * 0.5;
@@ -30,7 +32,7 @@ export function heroPlant(parent, at) {
     const petMesh = mesh(new THREE.CylinderGeometry(0.008, 0.012, 1, 6).translate(0, 0.5, 0), std('#4f6a3c', 0.6));
     pet.add(petMesh);
     const blade = new THREE.Group();
-    const mat = std('#4d6c3c', 0.5, { side: THREE.DoubleSide, transparent: true, emissive: C('#5a7a20'), emissiveIntensity: 0.06 });
+    const mat = new THREE.MeshPhysicalMaterial({ color: C('#ffffff').offsetHSL((r() - 0.5) * 0.03, 0, (r() - 0.5) * 0.1), map: leafTexs[i % leafTexs.length], roughness: 0.48, side: THREE.DoubleSide, transparent: true, emissive: C('#5a7a20'), emissiveIntensity: 0.07, sheen: 0.3, sheenColor: C('#cfe0a0'), clearcoat: 0.25, clearcoatRoughness: 0.4 });
     const bl = mesh(leafGeo(1, 0.42, { curl: 0.16 + r() * 0.14, fold: 0.3, segL: 16, segW: 6 }), mat);
     bl.rotation.z = (r() - 0.5) * 0.6; // twist
     blade.add(bl);
@@ -38,7 +40,7 @@ export function heroPlant(parent, at) {
     shade(g);
     bl.customDepthMaterial = new THREE.MeshDepthMaterial({ alphaHash: true, side: THREE.DoubleSide });
     root.add(g);
-    leaves.push({ g, pet, blade, bl, mat, petMat: petMesh.material, birth, life, az, size: 0.42 + r() * 0.2, len: 0.32 + r() * 0.35, tilt: 0.25 + r() * 0.35, seed: r() });
+    leaves.push({ g, pet, blade, bl, mat, base: mat.color.clone(), petMat: petMesh.material, birth, life, az, size: 0.42 + r() * 0.2, len: 0.32 + r() * 0.35, tilt: 0.25 + r() * 0.35, seed: r() });
   }
 
   return {
@@ -75,7 +77,7 @@ export function heroPlant(parent, at) {
         L.blade.rotation.set(-Math.PI / 2 + Math.min(tilt * 1.4 + 0.25 + old * 0.2, 1.5) + sway * 2, 0, 0);
         const s = L.size * v * (0.15 + 0.85 * grow) * (1 - 0.5 * gone);
         L.blade.scale.set(s, s, s);
-        L.mat.color.copy(leafGreen).lerp(leafOld, old);
+        L.mat.color.copy(L.base).lerp(leafOld, old);
         L.mat.opacity = 1 - gone;
         L.bl.customDepthMaterial.opacity = 1 - gone;
       }

@@ -64,3 +64,31 @@ export function moves(age, arr) {
   }
   return v;
 }
+
+// ---- interval sets: [[a, b, fadeIn, fadeOut], ...] for composing table "scenes"
+export function iv(list, fi = 0.3, fo = 0.3) { return list.map(([a, b, f0, f1]) => [a, b, f0 ?? fi, f1 ?? fo]); }
+export function union(...lists) {
+  const all = lists.flat().slice().sort((x, y) => x[0] - y[0]);
+  const out = [];
+  for (const s of all) {
+    const last = out[out.length - 1];
+    if (last && s[0] <= last[1]) { if (s[1] > last[1]) { last[1] = s[1]; last[3] = s[3]; } }
+    else out.push(s.slice());
+  }
+  return out;
+}
+// A minus holes; edges created by a hole fade quickly (hf)
+export function subtract(A, holes, hf = 0.05) {
+  let cur = A.map((s) => s.slice());
+  for (const [h0, h1] of holes) {
+    const next = [];
+    for (const s of cur) {
+      const [a, b, fi, fo] = s;
+      if (h1 <= a || h0 >= b) { next.push(s); continue; }
+      if (h0 > a) next.push([a, h0, fi, hf]);
+      if (h1 < b) next.push([h1, b, hf, fo]);
+    }
+    cur = next;
+  }
+  return cur;
+}

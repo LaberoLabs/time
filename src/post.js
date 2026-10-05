@@ -85,8 +85,8 @@ export function buildPost(renderer, scene, camera) {
 
   const ao = new AOPass(scene, camera, size.x, size.y);
   ao.output = 0;
-  ao.blendIntensity = 1.0;
-  ao.updateGtaoMaterial({ radius: 0.32, distanceExponent: 1.4, thickness: 1.2, scale: 1.0, samples: 16, distanceFallOff: 1.0 });
+  ao.blendIntensity = 1.15;
+  ao.updateGtaoMaterial({ radius: 0.38, distanceExponent: 1.5, thickness: 1.2, scale: 1.0, samples: 16, distanceFallOff: 1.0 });
   ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
   composer.addPass(ao);
 

@@ -78,9 +78,14 @@ export function floorTextures() {
     x.fillRect(i * pw - 1, 0, 2.2, S);
   }
   noiseFill(x, S, S, 0.05, 3, r);
+  // per-plank finish: some planks a little more worn/matte than others
+  const [rc, rx] = canvas(512);
+  for (let i = 0; i < cols; i++) for (let y = 0; y < 512; y += 64 + r() * 120) { const v = 150 + r() * 90; rx.fillStyle = `rgb(${v},${v},${v})`; rx.fillRect(i * 512 / cols, y, 512 / cols, 200); }
+  noiseFill(rx, 512, 512, 0.15, 2, r);
   const map = toTex(c, { repeat: [2, 2], aniso: 16 });
   const bump = toTex(b, { srgb: false, repeat: [2, 2] });
-  return { map, bump };
+  const rough = toTex(rc, { srgb: false, repeat: [2, 2] });
+  return { map, bump, rough };
 }
 
 // ---------------------------------------------------------------- plaster wall (seamless)
@@ -382,6 +387,56 @@ export function spineTexture(color, seed) {
   x.fillRect(22, 70 + r() * 40, 20, 60 + r() * 50); // title block
   noiseFill(x, 64, 256, 0.15, 1.5, r);
   return toTex(c, { aniso: 4 });
+}
+
+// sheer curtain: alpha weave with a denser header and hem
+export function sheerAlpha() {
+  const W = 256, H = 1024, r = rng(61);
+  const [c, x] = canvas(W, H);
+  x.fillStyle = 'rgb(150,150,150)'; x.fillRect(0, 0, W, H);
+  for (let i = 0; i < W; i += 2) { x.fillStyle = `rgba(255,255,255,${0.05 + r() * 0.12})`; x.fillRect(i, 0, 1, H); }
+  for (let j = 0; j < H; j += 3) { x.fillStyle = `rgba(0,0,0,${0.04 + r() * 0.08})`; x.fillRect(0, j, W, 1); }
+  for (let k = 0; k < 18; k++) { x.fillStyle = `rgba(255,255,255,${0.04 + r() * 0.05})`; x.fillRect(r() * W, 0, 2 + r() * 6, H); } // slubs
+  x.fillStyle = 'rgb(235,235,235)'; x.fillRect(0, 0, W, 34); x.fillRect(0, H - 22, W, 22);
+  x.fillStyle = 'rgb(255,255,255)'; x.fillRect(0, 34, W, 3); x.fillRect(0, H - 25, W, 2);
+  return toTex(c, { srgb: false });
+}
+export function clothMap(base = '#f3eee6', seed = 4, stripes = true) {
+  const S = 512, r = rng(seed);
+  const [c, x] = canvas(S);
+  x.fillStyle = base; x.fillRect(0, 0, S, S);
+  if (stripes) for (let i = 0; i < S; i += 16) { x.fillStyle = 'rgba(120,100,80,0.035)'; x.fillRect(i, 0, 6, S); }
+  noiseFill(x, S, S, 0.05, 1.5, r); noiseFill(x, S, S, 0.04, 1.5, r, true);
+  return toTex(c, { repeat: [3, 3] });
+}
+export function leafTexture(seed = 1) {
+  const W = 128, H = 256, r = rng(seed);
+  const [c, x] = canvas(W, H);
+  const g = x.createLinearGradient(0, 0, W, 0);
+  g.addColorStop(0, '#2f4a28'); g.addColorStop(0.45, '#4f7240'); g.addColorStop(0.5, '#a7b77c'); g.addColorStop(0.55, '#4f7240'); g.addColorStop(1, '#2f4a28');
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  x.strokeStyle = 'rgba(190,205,140,0.35)'; x.lineWidth = 1.2;
+  for (let j = 10; j < H; j += 11 + r() * 5) for (const s of [-1, 1]) { x.beginPath(); x.moveTo(W / 2, j); x.quadraticCurveTo(W / 2 + s * 30, j - 6, W / 2 + s * 62, j - 22); x.stroke(); }
+  noiseFill(x, W, H, 0.12, 1.5, r);
+  for (let k = 0; k < 6; k++) { x.fillStyle = 'rgba(150,130,60,0.15)'; x.beginPath(); x.arc(r() * W, r() * H, 2 + r() * 5, 0, 7); x.fill(); } // small blemishes
+  return toTex(c);
+}
+// coat cloth: outer fabric on the hanging back, lining on the short front, a collar band over the rail
+export function garmentMap(color, lining, frontFrac, topFrac, seed = 1) {
+  const W = 256, H = 512, r = rng(seed);
+  const [c, x] = canvas(W, H);
+  // canvas row 0 = v 1 = end of the back (hem)
+  x.fillStyle = color; x.fillRect(0, 0, W, H);
+  const yFront = H * (1 - frontFrac), yTop = H * (1 - frontFrac - topFrac);
+  x.fillStyle = lining; x.fillRect(0, yFront, W, H - yFront);
+  x.fillStyle = 'rgba(0,0,0,0.18)'; x.fillRect(0, yTop - 2, W, 4); x.fillRect(0, yFront - 1, W, 3);
+  x.fillStyle = 'rgba(255,255,255,0.06)'; x.fillRect(0, yTop + 4, W, yFront - yTop - 8); // collar band catches light
+  x.strokeStyle = 'rgba(0,0,0,0.22)'; x.setLineDash([3, 3]); x.lineWidth = 1;
+  x.beginPath(); x.moveTo(0, 14); x.lineTo(W, 14); x.stroke(); // hem stitch
+  x.beginPath(); x.moveTo(W / 2, 14); x.lineTo(W / 2, yTop - 6); x.stroke(); // centre back seam
+  x.setLineDash([]);
+  noiseFill(x, W, H, 0.08, 1.5, r); noiseFill(x, W, H, 0.05, 1.5, r, true);
+  const t = toTex(c); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t;
 }
 
 // Soft radial blob for contact shadows

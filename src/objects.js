@@ -1,7 +1,7 @@
 // Procedural objects of a life. Each returns a Group with its origin at its resting point.
 import * as THREE from 'three';
-import { std, shade, rbox, mesh, lathe, contact, pillowGeo, drapeGeo, leafGeo, tube, fixNormals, C } from './build.js';
-import { woodTexture, knitTexture, linenBump, spineTexture, toTex, canvas } from './tex.js';
+import { std, shade, rbox, mesh, lathe, contact, pillowGeo, drapeGeo, leafGeo, tube, fixNormals, fabric, glazed, C } from './build.js';
+import { woodTexture, knitTexture, linenBump, spineTexture, toTex, canvas, garmentMap } from './tex.js';
 import { rng } from './util.js';
 
 const G = () => new THREE.Group();
@@ -104,7 +104,7 @@ export function bottle() {
 }
 export function mug(color = '#d8cfc2') {
   const g = G();
-  const m = std(color, 0.35);
+  const m = glazed(color);
   g.add(mesh(lathe([[0, 0], [0.04, 0], [0.043, 0.005], [0.043, 0.095], [0.039, 0.095], [0.037, 0.012], [0, 0.012]], 32), m));
   const h = mesh(new THREE.TorusGeometry(0.025, 0.007, 8, 20, Math.PI * 1.25), m, 0.045, 0.05, 0); h.rotation.z = -Math.PI * 0.62; g.add(h);
   g.add(mesh(new THREE.CylinderGeometry(0.037, 0.037, 0.003, 24), std('#3a2014', 0.1), 0, 0.07, 0)); // tea/coffee
@@ -113,13 +113,13 @@ export function mug(color = '#d8cfc2') {
 }
 export function bowl(color = '#e7dfd2', r = 0.08, h = 0.05) {
   const g = G();
-  g.add(mesh(lathe([[0, 0], [r * 0.45, 0], [r * 0.5, 0.004], [r * 0.9, h * 0.6], [r, h], [r * 0.95, h], [r * 0.85, h * 0.62], [r * 0.4, h * 0.12], [0, h * 0.12]], 40), std(color, 0.3)));
+  g.add(mesh(lathe([[0, 0], [r * 0.45, 0], [r * 0.5, 0.004], [r * 0.9, h * 0.6], [r, h], [r * 0.95, h], [r * 0.85, h * 0.62], [r * 0.4, h * 0.12], [0, h * 0.12]], 40), glazed(color)));
   shade(g); g.add(contact(r * 2.6, r * 2.6, 0.4, 0.001));
   return g;
 }
 export function plate(color = '#efe9df', r = 0.13) {
   const g = G();
-  g.add(mesh(lathe([[0, 0], [r * 0.7, 0], [r * 0.75, 0.006], [r, 0.016], [r * 0.98, 0.019], [r * 0.72, 0.01], [0, 0.01]], 48), std(color, 0.3)));
+  g.add(mesh(lathe([[0, 0], [r * 0.7, 0], [r * 0.75, 0.006], [r, 0.016], [r * 0.98, 0.019], [r * 0.72, 0.01], [0, 0.01]], 48), glazed(color, { roughness: 0.3 })));
   shade(g); g.add(contact(r * 2.3, r * 2.3, 0.35, 0.001));
   return g;
 }
@@ -157,7 +157,10 @@ export function laptop() {
 const spineCache = new Map();
 function spineMat(color, seed) {
   const k = color + (seed % 7);
-  if (!spineCache.has(k)) spineCache.set(k, std('#ffffff', 0.75, { map: spineTexture(color, seed) }));
+  if (!spineCache.has(k)) {
+    const jitter = C(color).offsetHSL(((seed * 37) % 11 - 5) * 0.004, ((seed * 13) % 7 - 3) * 0.02, ((seed * 29) % 9 - 4) * 0.012);
+    spineCache.set(k, std('#ffffff', 0.62 + (seed % 5) * 0.06, { map: spineTexture('#' + jitter.getHexString(), seed) }));
+  }
   return spineCache.get(k);
 }
 const pageMat = std('#e9e0cc', 0.9);
@@ -264,13 +267,13 @@ export function pencilCase() {
 // ------------------------------------------------------------------ textiles
 export function throwBlanket(color, seed = 1, w = 0.7, d = 1.4, drop = 0.28) {
   const g = G();
-  const m = std('#ffffff', 0.95, { map: knitTexture(color, seed) });
+  const m = fabric('#ffffff', { map: knitTexture(color, seed), sheen: 0.8 });
   const t = mesh(drapeGeo(w, d, drop, { seg: 60, wr: 0.022, seed, freq: 1.4 }), m); t.castShadow = t.receiveShadow = true; g.add(t);
   return g;
 }
 export function cushion(color, s = 0.42) {
   const g = G();
-  const c = mesh(pillowGeo(s, s * 0.5, s * 0.8), std(color, 0.95, { bumpMap: linenBump(12), bumpScale: 0.5 }));
+  const c = mesh(pillowGeo(s, s * 0.5, s * 0.8), fabric(color, { bumpMap: linenBump(12), bumpScale: 0.6 }));
   c.rotation.x = -Math.PI / 2 + 0.3; c.position.y = s * 0.38; c.castShadow = c.receiveShadow = true; g.add(c);
   return g;
 }
@@ -606,41 +609,51 @@ export function cuttingJar() {
 // origin = centre of the rail. Section runs: front (short, follows the backrest's lean) -> over the rail -> back (long, falls free).
 export function garment(color, { w = 0.42, front = 0.14, back = 0.4, r = 0.045, lean = 0.16, seed = 1, sleeves = true, knit = false, bulge = 0.018 } = {}) {
   const g = G();
-  const SU = 28, SV = 46;
+  const SU = 32, SV = 60;
   const arc = Math.PI * r, L = front + arc + back;
   const geo = new THREE.PlaneGeometry(1, 1, SU, SV);
   const p = geo.attributes.position;
-  const rr = rng(seed), ph = rr() * 6, ph2 = rr() * 6;
+  const rr = rng(seed), ph = rr() * 6, ph2 = rr() * 6, skew = (rr() - 0.5) * 0.06;
   for (let i = 0; i < p.count; i++) {
     const u = p.getX(i) * 2;          // -1..1 across
-    const a = (p.getY(i) + 0.5) * L;  // 0..L along the section
+    const a = (p.getY(i) + 0.5) * L;  // 0..L along the section (0 = front hem, L = back hem)
     let y, z, hang = 0;
-    if (a < front) { const d = front - a; y = -d; z = r + lean * d; hang = d / front * 0.4; }
-    else if (a < front + arc) { const t = (a - front) / r; y = r * Math.sin(t); z = r * Math.cos(t); }
-    else { const d = a - front - arc; hang = d / back; y = -d; z = -r - bulge * Math.sin(Math.PI * Math.min(1, d / back)); }
-    // gravity folds grow towards the hem; the hem itself waves a little
-    const fold = (Math.sin(u * 7.5 + ph) * 0.6 + Math.sin(u * 15 + ph2) * 0.25) * 0.011 * hang;
-    if (z > 0) z += Math.abs(fold) * 0.6; else z -= Math.abs(fold);
-    if (a > front + arc) y += Math.sin(u * 5 + ph) * 0.012 * hang * hang;
-    const x = u * (w / 2) * (1 + 0.1 * hang);
+    if (a < front) { const d = front - a; y = -d; z = r + lean * d + 0.004; hang = (d / front) * 0.5; }
+    else if (a < front + arc) {
+      // over the rail: the cloth bunches a little at the shoulders
+      const t = (a - front) / r; const bunch = 1 + 0.25 * Math.pow(Math.abs(u), 3);
+      y = r * Math.sin(t) * bunch; z = r * Math.cos(t) * bunch;
+    } else { const d = a - front - arc; hang = d / back; y = -d; z = -r - bulge * Math.sin(Math.PI * Math.min(1, d / back)); }
+    // gravity folds: deeper towards the hem, a few larger tubes plus fine creases; side edges curl in
+    const big = Math.sin(u * 4.2 + ph) * 0.016, fine = Math.sin(u * 13 + ph2 + a * 3) * 0.004;
+    const fold = (big + fine) * hang;
+    const edge = Math.pow(Math.abs(u), 6) * 0.02 * hang;
+    if (z > 0) z += Math.abs(fold) * 0.5 + edge * 0.5; else z -= Math.abs(fold) + edge;
+    if (a > front + arc) y += (Math.sin(u * 3 + ph) * 0.018 + skew * u) * hang * hang; // uneven hem
+    const x = u * (w / 2) * (1 + 0.12 * hang - 0.05 * edge) ;
     p.setXYZ(i, x, y, z);
   }
   geo.computeVertexNormals();
-  const mat = std(knit ? '#ffffff' : color, 0.93, knit ? { map: knitTexture(color, seed + 5), side: THREE.DoubleSide } : { bumpMap: linenBump(seed + 40), bumpScale: 0.5, side: THREE.DoubleSide });
+  const lining = C(color).lerp(new THREE.Color('#2a2420'), 0.35).getStyle();
+  const map = knit ? knitTexture(color, seed + 5) : garmentMap(color, lining, front / L, arc / L, seed);
+  const mat = fabric('#ffffff', { map, bumpMap: linenBump(seed + 40), bumpScale: knit ? 0.8 : 0.5, side: THREE.DoubleSide, sheen: knit ? 0.85 : 0.6 });
   const body = mesh(geo, mat); body.castShadow = body.receiveShadow = true; g.add(body);
   if (sleeves) for (const s of [-1, 1]) {
-    const len = back * 0.82;
-    const sl = mesh(new THREE.CylinderGeometry(0.03, 0.036, len, 10, 1, true), mat, s * (w / 2 - 0.035), -0.03 - len / 2, -r - 0.034);
-    sl.scale.z = 0.62; sl.castShadow = true; g.add(sl);
-    const cuff = mesh(new THREE.CircleGeometry(0.034, 10).rotateX(Math.PI / 2), std('#2a221c', 0.9), s * (w / 2 - 0.035), -0.03 - len, -r - 0.034);
-    cuff.scale.z = 0.62; g.add(cuff);
+    // a sleeve falls from the shoulder behind the rail, slightly forward at the elbow, flattened by its own weight
+    const len = back * 0.86, x0 = s * (w / 2 - 0.045);
+    const pts = [[x0, -0.02, -r - 0.03], [x0 + s * 0.006, -len * 0.45, -r - 0.045], [x0 - s * 0.004, -len, -r - 0.035]];
+    const sm = fabric(color, { bumpMap: linenBump(seed + 41), bumpScale: 0.5 });
+    const sl = mesh(tube(pts, 0.03, 16, 10), sm); sl.scale.z = 1; g.add(sl);
+    const sp = sl.geometry.attributes.position; // flatten front-to-back and taper to the cuff
+    for (let i = 0; i < sp.count; i++) { const y = sp.getY(i), k = (-y) / len; const cx = x0 + (sp.getX(i) - x0) * (1 - 0.15 * k); sp.setXYZ(i, cx, y, -r - 0.04 + (sp.getZ(i) + r + 0.04) * 0.55); }
+    sl.geometry.computeVertexNormals(); sl.castShadow = true;
   }
   return g;
 }
 // a garment folded and laid down (on a seat). origin = bottom centre
 export function foldedCloth(color, w = 0.3, d = 0.24, h = 0.06, knit = true, seed = 3) {
   const g = G();
-  const m = std(knit ? '#ffffff' : color, 0.95, knit ? { map: knitTexture(color, seed) } : {});
+  const m = fabric(knit ? '#ffffff' : color, knit ? { map: knitTexture(color, seed) } : {});
   g.add(mesh(rbox(w, h * 0.55, d, h * 0.25, 3), m, 0, h * 0.28, 0));
   g.add(mesh(rbox(w * 0.96, h * 0.5, d * 0.92, h * 0.24, 3), m, 0.005, h * 0.76, -0.006));
   shade(g); return g;
@@ -727,13 +740,18 @@ export function openBook(color = '#5a3a2a') {
   shade(g); g.add(contact(0.36, 0.28, 0.35, 0.001));
   return g;
 }
-export function bouquet(cols = ['#e8a0a8', '#f4efe6', '#d86a5a']) {
+export function bouquet(cols = ['#e9b4b0', '#f6f1e8', '#d98a6a', '#c9a0b4']) {
+  // garden flowers among the eucalyptus: small heads at different heights, a few still closed
   const g = vaseStems('euc');
-  const r = rng(cols.length * 7);
-  for (let i = 0; i < 7; i++) {
-    const a = r() * 6.28, lean = 0.08 + r() * 0.12, L = 0.32 + r() * 0.12;
-    const f = mesh(new THREE.SphereGeometry(0.03 + r() * 0.015, 12, 8), std(cols[i % cols.length], 0.8), Math.cos(a) * lean, 0.2 + L, Math.sin(a) * lean);
-    f.scale.y = 0.75; f.castShadow = true; g.add(f);
+  const r = rng(cols.length * 7 + 3);
+  for (let i = 0; i < 11; i++) {
+    const a = r() * 6.28, lean = 0.04 + r() * 0.12, L = 0.26 + r() * 0.18;
+    const tip = [Math.cos(a) * lean, 0.2 + L, Math.sin(a) * lean];
+    g.add(mesh(tube([[0, 0.05, 0], [tip[0] * 0.5, 0.2 + L * 0.55, tip[2] * 0.5], tip], 0.002, 10, 4), std('#5d6b52', 0.6)));
+    const bud = r() < 0.25, rad = bud ? 0.01 : 0.016 + r() * 0.012;
+    const head = mesh(new THREE.SphereGeometry(rad, 12, 8), std(cols[i % cols.length], 0.85), ...tip);
+    head.scale.set(1, bud ? 1.5 : 0.6, 1); head.rotation.set(r() - 0.5, 0, r() - 0.5); head.castShadow = true; g.add(head);
+    if (!bud) { const c = mesh(new THREE.SphereGeometry(rad * 0.35, 8, 6), std('#e0c060', 0.7), tip[0], tip[1] + rad * 0.45, tip[2]); g.add(c); }
   }
   return g;
 }

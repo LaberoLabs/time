@@ -11,7 +11,7 @@ import * as O from './objects.js';
 import { heroPlant, ivy, olive } from './plants.js';
 import { std, mesh, C } from './build.js';
 import { inkPrint, abstractPrint, photoTexture, childDrawing, rugTexture2, BOOK_COLORS, KID_BOOK_COLORS, canvas, toTex } from './tex.js';
-import { rng, smooth, keys, clamp, lerp, noise1 } from './util.js';
+import { rng, smooth, keys, clamp, lerp, noise1, iv, union, subtract } from './util.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 // the grown child, coming home: short stays, more often after 77
@@ -21,12 +21,31 @@ const VISITS_SHOES = [[36.1, 52.4, 0.4, 0.4], ...VISITS.filter(([a]) => a < LOSS
 const END = 89.6; // the last things put down are never picked up again
 // evenings with friends, once the child has left: [start]; dinner lasts 0.2y, the late-evening traces 0.1y
 const DINNERS = [53.7, 54.6, 57.0, 58.2, 59.3, 60.7];
-const DIN = DINNERS.map((d) => [d, d + 0.2, 0.04, 0.03]);
-const AFTER = DINNERS.map((d) => [d + 0.21, d + 0.31, 0.03, 0.04]);
-const BOTH = DINNERS.map((d) => [d, d + 0.31, 0.04, 0.04]);
+const DIN = DINNERS.map((d) => [d, d + 0.32, 0.06, 0.04]);
+const AFTER = DINNERS.map((d) => [d + 0.33, d + 0.5, 0.04, 0.06]);
+const BOTH = DINNERS.map((d) => [d, d + 0.5, 0.06, 0.06]);
 // cut windows out of a presence span (things cleared off the table for dinners)
 const minus = (a, b, holes) => { const out = []; let s = a; for (const [h0, h1] of holes) { if (h1 < s || h0 > b) continue; out.push([s, h0, 0.4, 0.03]); s = h1; } out.push([s, b, 0.04, 0.4]); return out; };
-const HOLES = DINNERS.map((d) => [d - 0.03, d + 0.35]);
+const HOLES = DINNERS.map((d) => [d - 0.05, d + 0.56]);
+// birthdays: an afternoon with cake and tea
+const BIRTHDAYS = Array.from({ length: 11 }, (_, k) => 34.7 + k);
+const BDAY = BIRTHDAYS.map((b) => [b, b + 0.32]);
+const BDAY_H = BIRTHDAYS.map((b) => [b - 0.04, b + 0.36]);
+const TRIPS = [55.15, 63.35, 71.5];
+// what is drunk at the table depends on the years: wine evenings, tea years, and scenes in between
+const VPRE = VISITS.filter(([a]) => a < LOSS).map(([a, b]) => [a, b]);
+const VPOST = VISITS.filter(([a]) => a > LOSS).map(([a, b]) => [a, b]);
+const pad = (l, p = 0.04) => l.map(([a, b]) => [a - p, b + p]);
+const GLASS1 = subtract(union(iv([[-Infinity, 32.35], [41.8, 61.1], [LOSS + 0.5, 79.0]]), iv(VPRE, 0.1, 0.1)), [...BDAY_H, ...pad(VPOST)]);
+const GLASS2 = subtract(union(iv([[26.6, 26.9], [27.25, 27.55]], 0.12, 0.12), iv([[27.85, 32.35], [41.85, 61.1]]), iv(VPRE.filter(([a]) => a < LOSS), 0.1, 0.1)), BDAY_H);
+const MUG1 = subtract(union(iv([[32.3, 41.7], [61.2, LOSS], [79.2, 89.6]]), iv(BDAY, 0.05, 0.05), iv(VPOST, 0.1, 0.1)), [...pad(VPRE), ...HOLES]);
+const MUG2 = subtract(union(iv([[37.6, 41.7], [61.2, LOSS]]), iv(BDAY.filter(([a]) => a > 37.6), 0.05, 0.05)), [...pad(VPRE), ...HOLES]);
+// moments where time should slow so they can be seen (consumed by main.js scroll mapping)
+export const BEATS = [
+  [25.35, 25.75, 4], [28.85, 29.3, 4], ...BDAY.map(([a, b]) => [a, b, 5]), [49.6, 50.25, 3], [51.9, 53.0, 2.5],
+  ...BOTH.map(([a, b]) => [a, b, 5]), ...TRIPS.map((t) => [t, t + 0.35, 4]), ...VISITS.map(([a, b]) => [a, b, 3]),
+  [73.1, 74.2, 3], [89.3, 90.0, 6],
+];
 
 export function buildLife(scene, ctx) {
   const life = new Life(scene);
@@ -70,14 +89,14 @@ export function buildLife(scene, ctx) {
 
   // ================================================================ table top
   const glass1 = add(O.wineGlass(0.6), T.x + 0.15, ty, T.z - 0.28, {
-    spans: [[-Infinity, 32.35, 0.3, 0.3], [41.8, END, 0.4, 0.25]],
+    spans: GLASS1,
     path: [[25, [T.x + 0.15, ty, T.z - 0.3]], [27.5, [T.x + 0.08, ty, T.z - 0.3]], [41.7, [T.x + 0.06, ty, T.z - 0.32]]],
     wob: { p: 0.02, r: 0, f: 2.2, seed: 3 },
     update(age, p, o) { const w = o.userData.wine; if (w) { w.visible = age < 79.3; w.material.opacity *= 1 - smooth(79.0, 79.3, age); } }, // no more wine
   });
   // the second glass: a visit, another visit, then always
   const glass2 = add(O.wineGlass(0.45), T.x - 0.66, ty, T.z - 0.2, {
-    spans: [[26.6, 26.9, 0.12, 0.12], [27.25, 27.55, 0.12, 0.12], [27.85, 32.35, 0.25, 0.3], [41.85, LOSS, 0.4, 0.25]],
+    spans: GLASS2,
     wob: { p: 0.03, r: 0, f: 2.0, seed: 4 },
   });
   add(O.bottle(), T.x + 0.38, ty, T.z - 0.18, { in: 28.6, out: 32.2, wob: { p: 0.04, r: 0.3, f: 1.6, seed: 8 } });
@@ -120,11 +139,11 @@ export function buildLife(scene, ctx) {
 
   // the mug: tea instead of wine, then it simply stays for good
   add(O.mug('#e3dccf'), T.x - 0.46, ty, T.z - 0.3, {
-    in: 32.3, out: END, fo: 0.25,
+    spans: MUG1,
     path: [[32, [T.x - 0.46, ty, T.z - 0.3]], [35, [T.x - 0.4, ty, T.z - 0.28], 1.2], [38, [T.x - 0.48, ty, T.z - 0.26], 2.1], [42, [T.x - 0.44, ty, T.z - 0.3], 0.4]],
     wob: { p: 0.02, r: 0.6, f: 2.4, seed: 31 },
   });
-  add(O.mug('#3f5a6a'), T.x - 0.72, ty, T.z + 0.04, { spans: minus(37.6, LOSS, HOLES), wob: { p: 0.02, r: 0.8, f: 2.1, seed: 33 } });
+  add(O.mug('#3f5a6a'), T.x - 0.72, ty, T.z + 0.04, { spans: MUG2, wob: { p: 0.02, r: 0.8, f: 2.1, seed: 33 } });
 
   // the child at the table
   add(O.babyBottle(), T.x - 0.32, ty, T.z + 0.3, { in: 33.7, out: 35.3, wob: { p: 0.04, r: 0, f: 2.5, seed: 41 } });
@@ -285,7 +304,7 @@ export function buildLife(scene, ctx) {
   // quieter years: a puzzle, a tablet, the paper
   add(O.jigsaw(), T.x - 0.3, ty, T.z + 0.24, { in: 61.4, out: 63.9, fi: 0.3, fo: 0.3, ry: 0.0, settle: [0, 0.01, 0] });
   add(O.tablet(), T.x + 0.35, ty, T.z - 0.28, { in: 62.6, out: END, fo: 0.25, ry: 0.0, wob: { p: 0.01, r: 0.1, f: 1.8, seed: 81 } });
-  add(O.newspaper(), T.x - 0.16, ty, T.z - 0.12, { in: 68.4, out: 81.0, ry: 0.0, wob: { p: 0.01, r: 0.08, f: 2.3, seed: 82 } });
+  add(O.newspaper(), T.x - 0.16, ty, T.z - 0.12, { spans: subtract(iv([[68.4, 81.0]]), [[LOSS - 0.05, 79.2], ...pad(VPRE)]), ry: 0.0, wob: { p: 0.01, r: 0.08, f: 2.3, seed: 82 } });
   add(O.plate('#efe9df', 0.12), T.x - 0.16, ty, T.z - 0.18, { in: 81.4, out: END, fo: 0.25, wob: { p: 0.01, r: 0.3, f: 2, seed: 83 } });
   add(O.openBook('#3d4a3a'), T.x - 0.15, ty, T.z + 0.1, { in: 84.4, out: END, fo: 0.25, ry: 0.08, settle: [0, 0.01, 0] });
   // a cutting from the big plant, in a jar
@@ -318,16 +337,18 @@ export function buildLife(scene, ctx) {
 
   // ================================================================ life between the milestones
   // 25: a takeaway on the table; drawing in the evenings
-  add(O.pizzaBox(), T.x + 0.2, ty, T.z + 0.15, { in: 25.4, out: 25.65, fi: 0.05, fo: 0.05, ry: 0.15 });
+  add(O.pizzaBox(), T.x + 0.2, ty, T.z + 0.15, { in: 25.35, out: 25.75, fi: 0.08, fo: 0.08, ry: 0.15 });
   add(O.sketchbook(), T.x + 0.3, ty, T.z - 0.04, { in: 25.9, out: 27.3, ry: -0.2, wob: { p: 0.01, r: 0.15, f: 2, seed: 91 } });
   // 29: someone moves in — boxes, briefly
   add(O.cardboardBox(0.5, 0.36, 0.38, true), -0.35, 0, 1.55, { in: 28.85, out: 29.25, fi: 0.08, fo: 0.1, ry: -0.15, settle: [0, 0, 0] });
   add(O.cardboardBox(0.42, 0.3, 0.32), -0.82, 0, 1.3, { in: 28.9, out: 29.3, fi: 0.08, fo: 0.1, ry: 0.25, settle: [0, 0, 0] });
   // birthdays at the child's place, one more candle each year
-  for (let k = 0; k < 11; k++) {
-    const b = 34.7 + k;
-    add(O.cake(k + 1), T.x - 0.15, ty, T.z + 0.08, { in: b, out: b + 0.07, fi: 0.03, fo: 0.03, settle: [0, 0.01, 0] });
-  }
+  BIRTHDAYS.forEach((b, k) => {
+    add(O.cake(k + 1), T.x - 0.15, ty, T.z + 0.08, { in: b, out: b + 0.32, fi: 0.06, fo: 0.06, settle: [0, 0.015, 0] });
+    // a small plate for each of them, and the knife
+    add(O.plate('#efe9df', 0.08), T.x + 0.15, ty, T.z - 0.22, { in: b + 0.04, out: b + 0.32, fi: 0.05, fo: 0.05 });
+    add(O.plate('#efe9df', 0.08), T.x - 0.5, ty, T.z - 0.05, { in: b + 0.05, out: b + 0.32, fi: 0.05, fo: 0.05 });
+  });
   // the room is repainted once the child is older; the paint things wait on a sheet
   add(O.paintJob(), -0.55, 0, 0.82, { in: 49.6, out: 50.25, fi: 0.08, fo: 0.08, ry: 0.1, settle: [0, 0, 0] });
   // pale patches and tape marks where drawings hung, until the repaint (and the grandchild's, never painted over)
@@ -336,7 +357,7 @@ export function buildLife(scene, ctx) {
     add(O.wallTrace(0.22, 0.165), x, y, 0, { in: b + 0.3, out: until, fi: 0.2, fo: 0.08, settle: [0, 0, 0] });
   }
   // trips away
-  for (const tr of [55.15, 63.35, 71.5]) add(O.suitcase(), -0.72, 0, 1.3, { in: tr, out: tr + 0.25, fi: 0.04, fo: 0.04, ry: 0.35, settle: [0, 0, 0] });
+  for (const tr of TRIPS) add(O.suitcase(), -0.72, 0, 1.3, { in: tr, out: tr + 0.35, fi: 0.06, fo: 0.06, ry: 0.35, settle: [0, 0, 0] });
 
   // evenings with friends: two more places, an opened bottle, flowers; afterwards the plates stacked, glasses left out
   const guestChair = add(O.chairSpindle(std('#5d5a54', 0.6)), T.x - 0.28, 0, T.z + 0.82, {
@@ -357,7 +378,7 @@ export function buildLife(scene, ctx) {
 
   // ================================================================ plants
   const hero = heroPlant(scene, V(-1.24, 0, 0.5));
-  const iv = ivy(scene, V(2.58, 2.33, 0.17), [[2.53, 2.37, 0.25], [2.36, 2.36, 0.33], [2.28, 2.25, 0.36], [2.27, 1.98, 0.37], [2.29, 1.62, 0.37], [2.26, 1.3, 0.36], [2.28, 0.98, 0.37], [2.25, 0.6, 0.36], [2.27, 0.3, 0.36]], { rate: 0.1, start: 0.14 });
+  const ivyA = ivy(scene, V(2.58, 2.33, 0.17), [[2.53, 2.37, 0.25], [2.36, 2.36, 0.33], [2.28, 2.25, 0.36], [2.27, 1.98, 0.37], [2.29, 1.62, 0.37], [2.26, 1.3, 0.36], [2.28, 0.98, 0.37], [2.25, 0.6, 0.36], [2.27, 0.3, 0.36]], { rate: 0.1, start: 0.14 });
   const iv2 = ivy(scene, V(2.58, 2.33, 0.17), [[2.62, 2.37, 0.26], [2.85, 2.34, 0.36], [3.05, 2.2, 0.37], [3.15, 1.98, 0.37]], { rate: 0.06, start: 0.05, seed: 9 });
   olive(scene, V(0.05, 0, -1.22));
 
@@ -376,7 +397,7 @@ export function buildLife(scene, ctx) {
     update(age, t) {
       life.update(age);
       hero.update(age, t);
-      iv.update(age); iv2.update(age);
+      ivyA.update(age); iv2.update(age);
       for (const f of extras) f(age, t);
       // the rug shifts when floor space becomes play space, and fades
       const sh = smooth(34.6, 35.2, age);
