@@ -67,7 +67,7 @@ const ALL_TABLE = SCENES.filter((s) => s.table).map((s) => [s.a - 0.04, s.b + 0.
 const daily = (list, holes = TABLE_HOLES) => subtract(iv(list), holes);
 // moments where time should slow so they can be seen (consumed by main.js scroll mapping)
 // stretches where nothing happens but time should still be felt: the first year alone, and the last quiet years
-const STILL = [[73.5, 74.8, 3], [79.0, 81.5, 1.6], [85.0, 89.3, 1.4]];
+const STILL = [[73.5, 75.2, 3], [79.0, 81.5, 1.6], [85.0, 89.3, 1.4]];
 export const BEATS = [...SCENES.map((s) => [s.a, s.b, s.w]), ...STILL];
 // the light each moment happens in
 export function todLayers(age) {
@@ -111,9 +111,9 @@ export function buildLife(scene, ctx) {
   const coat1 = add(O.garment('#8a5a3a', { seed: 1 }), 0, 0.95, -0.21, { follow: chairA, out: 59.6, fo: 0.3, settle: [0, 0.05, 0] });
   add(O.garment('#4f5a66', { seed: 6, back: 0.42 }), 0, 0.95, -0.21, { follow: chairA, in: 60.0, fi: 0.3, out: END, fo: 0.25, settle: [0, 0.05, 0] }); // the coat, replaced
   const scarf = add(O.garment('#b5523b', { w: 0.17, r: 0.092, front: 0.2, back: 0.3, knit: true, sleeves: false, bulge: 0.004, seed: 4 }), 0.05, 0.95, -0.21, { follow: chairA, in: 30.6, out: END, fo: 0.25, settle: [0, 0.04, 0] });
-  const coat2 = add(O.garment('#b7a48a', { seed: 2, knit: true, back: 0.34, front: 0.12, lean: 0, r: 0.05 }), 0, 0.935, -0.185, { follow: chairB, spans: [...SCENES.filter((s) => s.kind === 'date').map((s) => [s.a, s.b, 0.05, 0.05]), [28.3, LOSS + 3.0, 0.4, 0.3]], settle: [0, 0.05, 0] });
-  // afterwards it is folded and left on their seat for a while
-  add(O.foldedCloth('#b7a48a', 0.3, 0.24, 0.06, true, 9), 0, 0.48, 0.02, { follow: chairB, in: LOSS + 3.25, out: 80.0, fi: 0.25, fo: 0.4, settle: [0, 0.04, 0] });
+  const coat2 = add(O.garment('#b7a48a', { seed: 2, knit: true, back: 0.34, front: 0.12, lean: 0, r: 0.05 }), 0, 0.935, -0.185, { follow: chairB, spans: [...SCENES.filter((s) => s.kind === 'date').map((s) => [s.a, s.b, 0.05, 0.05]), [28.3, LOSS + 1.2, 0.4, 0.3]], settle: [0, 0.05, 0] });
+  // it stays a little after the boots have gone, then is folded and left on their seat; put away years later
+  add(O.foldedCloth('#b7a48a', 0.3, 0.24, 0.06, true, 9), 0, 0.48, 0.02, { follow: chairB, in: LOSS + 1.3, out: 80.0, fi: 0.25, fo: 0.4, settle: [0, 0.04, 0] });
   const kidCoat = add(O.garment('#d9a22a', { seed: 3, w: 0.32, back: 0.3, front: 0.11, r: 0.055, lean: 0.38 }), 0, 0.925, -0.175, { follow: kidChair, in: 38.8, out: 41.4, settle: [0, 0.05, 0] });
   add(O.backpack('#c4532e'), 0.42, 0.42, 0.05, { follow: kidChair, in: 40.6, out: 47.6, settle: [0, 0.05, 0] });
 
@@ -332,7 +332,7 @@ export function buildLife(scene, ctx) {
 
   // ================================================================ nightstand
   add(O.bookFlat('#2f4858', 0.13, 0.19, 0.025), -1.6, 0.55, 0.3, { ry: 0.25, wob: { p: 0.02, r: 0.3, f: 1.5, seed: 51 } });
-  add(O.bookFlat('#a8452f', 0.13, 0.2, 0.03), -1.6, 0.575, 0.3, { in: 28.6, out: 75.2, ry: -0.1, wob: { p: 0.02, r: 0.3, f: 1.3, seed: 52 } });
+  add(O.bookFlat('#a8452f', 0.13, 0.2, 0.03), -1.6, 0.575, 0.3, { in: 28.6, out: 80.0, fo: 0.4, ry: -0.1, wob: { p: 0.02, r: 0.3, f: 1.3, seed: 52, until: LOSS } }); // theirs: put away with their clothes
   add(O.babyMonitor(), -1.88, 0.55, 0.36, { in: 33.8, out: 37.4, ry: 0.3 });
 
   // ================================================================ floor: shoes, the cradle, toys
@@ -380,7 +380,7 @@ export function buildLife(scene, ctx) {
     ['cat', -1.66, 1.55, 38.6, 43.4, 84],
     ['flowers', -1.8, 1.73, 39.5, 48.1, 85],
     ['house', -1.66, 1.3, 41.2, 46.8, 86],
-    ['scribble', -1.62, 1.24, 67.4, 75.5, 87], // a grandchild's
+    ['scribble', -1.62, 1.24, 67.4, Infinity, 87], // a grandchild's; kept
   ];
   for (const [k, x, y, a, b, seed] of taped) add(O.tapedPaper(childDrawing(k, seed), 0.22, 0.165, seed), x, y, 0.0, { in: a, out: b, fi: 0.25, fo: 0.25, settle: [0, 0, 0.03] });
 

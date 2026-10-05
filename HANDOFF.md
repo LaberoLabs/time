@@ -37,7 +37,7 @@ npm run dev        # Vite on http://localhost:5317
 - Preserve what has been approved. When unsure, change less.
 
 ### Git checkpoints (tags, oldest → newest)
-`checkpoint-base-room` → `checkpoint-approved-25-45` → `checkpoint-life-25-90` → `checkpoint-continuity` → `checkpoint-lived` → `checkpoint-refined` → `checkpoint-lived-in` → `checkpoint-simplified` → (HEAD: four fixes)
+`checkpoint-base-room` → `checkpoint-approved-25-45` → `checkpoint-life-25-90` → `checkpoint-continuity` → `checkpoint-lived` → `checkpoint-refined` → `checkpoint-lived-in` → `checkpoint-simplified` → `checkpoint-four-fixes` → (HEAD: folded clothes, memories kept)
 
 ---
 
@@ -51,7 +51,7 @@ npm run dev        # Vite on http://localhost:5317
 - **Child growing up**, shown only through their belongings, never through birthdays: sippy cup and blocks → drawings on the wall and height marks (the child's age 2–16) → juice and school books → pencil case, ball and bike → the teen's laptop, headphones, jacket and guitar → adult shoes → **moving-out boxes at ~52**.
 - **Social years ~53–61:** one dinner party and one games night. Each is a continuous sequence: setup → evening → dawn aftermath → cleared. Repaint at 50. New rug at 60. Trips leave keepsakes (photos, a sailboat model, a carved bird, a woven artwork).
 - **Quieter couple ~61–73:** tea, the newspaper, a jigsaw, the tablet. The grandchild is implied only by a small cup and the old blocks (twice).
-- **Loss at 73.5:** never shown. The partner's glass and mug simply stop appearing. Their **chair at the short end of the table** stays empty and stops moving. The cardigan stays on it for about 3 years, then lies folded on the seat until 80. The boots go soon after. Their print and throw remain as memory.
+- **Loss at 73.5:** never shown. The partner's glass and mug simply stop appearing. Their **chair at the short end of the table** stays empty and stops moving. The boots go first (~73.8). The cardigan stays draped a little longer (to ~74.7), then lies folded on the seat until 80, when it is put away together with their bedside book. Their print and throw remain as memory.
 - **Alone, 74–89:** mostly a book and a glass of water. Two suppers alone and two visits from the child (tea). Long still stretches. The room dims slightly.
 - **90:** all signs of current living are gone, but the furniture and history remain. The lamps go off, then the **candle**, which has been lit since 29 and burned slowly, goes out.
 
