@@ -119,6 +119,7 @@ function step(dt, t) {
   ctx.ageU.value = encAge(age) / 255;
   room.update(age, t);
   life.update(age, t, vel);
+  renderer.toneMappingExposure = 1.0 - 0.1 * (ctx.dim || 0);
   exterior.update(age, t, camera.position);
 
   const a = Math.floor(age + 1e-6);

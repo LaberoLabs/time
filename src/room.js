@@ -392,7 +392,9 @@ export function buildRoom(scene, ctx) {
   spot.castShadow = true; spot.shadow.mapSize.set(1024, 1024); spot.shadow.bias = -0.0004; spot.shadow.radius = 4;
   spot.shadow.camera.near = 0.1;
   room.add(spot, spot.target);
+  ctx.spot = spot;
   const pglow = new THREE.PointLight(C('#ffb468'), 0.35, 3.5, 2); pglow.position.set(tcx, py + 0.4, tcz); room.add(pglow);
+  ctx.pendantGlow = pglow;
 
   // ------------------------------------------------------------ light
   const sunDir = ctx.sunDir;

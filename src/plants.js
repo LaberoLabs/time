@@ -24,7 +24,7 @@ export function heroPlant(parent, at) {
   for (let i = 0; i < N; i++) {
     const birth = (i < 34 ? 19.5 + i * (25 / 34) : 44.5 + (i - 34) * (45 / (N - 34))) + r() * 0.5;
     const life = 6 + r() * 5;
-    const az = (i * 2.399) % (Math.PI * 2); // golden angle
+    const az = -0.6 + ((i * 0.6180339) % 1) * 1.9; // towards the room only
     const g = new THREE.Group();
     const pet = new THREE.Group();
     const petMesh = mesh(new THREE.CylinderGeometry(0.008, 0.012, 1, 6).translate(0, 0.5, 0), std('#4f6a3c', 0.6));
@@ -62,7 +62,9 @@ export function heroPlant(parent, at) {
         const len = L.len * v * (0.35 + 0.65 * grow) * 1.25;
         // young leaves stand upright, older ones open outward and droop
         const ageYrs = clamp(age - L.birth, 0, 12);
-        const tilt = (0.12 + L.tilt * smooth(0, 2.5, ageYrs) + old * 0.5) * (0.6 + 0.4 * v);
+        let tilt = (0.12 + L.tilt * smooth(0, 2.5, ageYrs) + old * 0.3) * (0.6 + 0.4 * v);
+        // never let a leaf reach the floor: keep the petiole tip well above the soil line
+        if (len > 0.55) tilt = Math.min(tilt, Math.acos(0.55 / len) - 0.08);
         L.g.position.set(0, soilY, 0);
         L.g.rotation.set(0, L.az, 0);
         L.pet.rotation.set(tilt + sway, 0, 0);
@@ -70,8 +72,8 @@ export function heroPlant(parent, at) {
         // blade at petiole tip, continuing outward, drooping more with age
         const tip = new THREE.Vector3(0, len, 0).applyEuler(L.pet.rotation);
         L.blade.position.copy(tip);
-        L.blade.rotation.set(-Math.PI / 2 + tilt * 1.4 + 0.25 + old * 0.4 + sway * 2, 0, 0);
-        const s = L.size * v * (0.15 + 0.85 * grow);
+        L.blade.rotation.set(-Math.PI / 2 + Math.min(tilt * 1.4 + 0.25 + old * 0.2, 1.5) + sway * 2, 0, 0);
+        const s = L.size * v * (0.15 + 0.85 * grow) * (1 - 0.5 * gone);
         L.blade.scale.set(s, s, s);
         L.mat.color.copy(leafGreen).lerp(leafOld, old);
         L.mat.opacity = 1 - gone;

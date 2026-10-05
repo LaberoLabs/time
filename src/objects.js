@@ -80,7 +80,7 @@ export function wineGlass(filled = 0.5) {
   if (filled > 0) {
     const wine = mesh(lathe([[0, 0.104], [0.012, 0.104], [0.032, 0.125], [0.038, 0.142 + filled * 0.02], [0, 0.142 + filled * 0.02]], 24),
       std('#4a0610', 0.15, { emissive: C('#6a0a12'), emissiveIntensity: 0.35, transparent: true, opacity: 0.92 }));
-    wine.renderOrder = 5; g.add(wine);
+    wine.renderOrder = 5; g.add(wine); g.userData.wine = wine;
   }
   g.add(contact(0.12, 0.12, 0.35, 0.001));
   return g;
@@ -207,6 +207,7 @@ export function vaseStems(kind = 'euc') {
   const r = rng(kind === 'euc' ? 9 : 19);
   const stemMat = std('#5d6b52', 0.6);
   const leafMat = std(kind === 'euc' ? '#8fa38f' : '#c48a5a', 0.6, { side: THREE.DoubleSide });
+  leafMat.name = 'leaf';
   for (let i = 0; i < 7; i++) {
     const a = r() * 6.28, lean = 0.15 + r() * 0.35, L = 0.35 + r() * 0.25;
     const tip = [Math.cos(a) * lean * L, 0.2 + L, Math.sin(a) * lean * L];
@@ -261,10 +262,10 @@ export function pencilCase() {
 }
 
 // ------------------------------------------------------------------ textiles
-export function throwBlanket(color, seed = 1, w = 0.7, d = 1.4) {
+export function throwBlanket(color, seed = 1, w = 0.7, d = 1.4, drop = 0.28) {
   const g = G();
   const m = std('#ffffff', 0.95, { map: knitTexture(color, seed) });
-  const t = mesh(drapeGeo(w, d, 0.28, { seg: 60, wr: 0.022, seed, freq: 1.4 }), m); t.castShadow = t.receiveShadow = true; g.add(t);
+  const t = mesh(drapeGeo(w, d, drop, { seg: 60, wr: 0.022, seed, freq: 1.4 }), m); t.castShadow = t.receiveShadow = true; g.add(t);
   return g;
 }
 export function cushion(color, s = 0.42) {
@@ -302,10 +303,10 @@ export function coat(color, len = 0.95, width = 0.46, seed = 1) {
   return g;
 }
 // A garment folded over a chair's backrest. origin = top of the backrest.
-export function chairCoat(color, seed = 1, w = 0.44, drop = 0.5, wr = 0.02) {
+export function chairCoat(color, seed = 1, w = 0.44, drop = 0.5, wr = 0.02, d0 = 0.05) {
   const g = G();
   const m = std(color, 0.92, { bumpMap: linenBump(seed + 40), bumpScale: 0.6, side: THREE.DoubleSide });
-  const d = mesh(drapeGeo(w, 0.05, drop, { seg: 44, wr, seed, freq: 1.6 }), m);
+  const d = mesh(drapeGeo(w, d0, drop, { seg: 44, wr, seed, freq: 1.6 }), m);
   d.castShadow = d.receiveShadow = true;
   g.add(d);
   return g;
@@ -424,15 +425,15 @@ export function bunny() {
   return g;
 }
 export function skateboard() {
+  // lying flat on the floor, wheels down
   const g = G();
-  const deck = mesh(rbox(0.2, 0.78, 0.014, 0.08, 4), std('#2f4858', 0.6), 0, 0.39, 0); g.add(deck);
-  for (const y of [0.12, 0.66]) for (const s of [-1, 1]) {
-    const w = mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.03, 16), std('#e9d36a', 0.5), s * 0.07, y, 0.035); w.rotation.z = Math.PI / 2; g.add(w);
+  g.add(mesh(rbox(0.2, 0.014, 0.78, 0.007, 3), std('#2f4858', 0.6), 0, 0.068, 0));
+  for (const z of [-0.27, 0.27]) for (const s of [-1, 1]) {
+    const w = mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.03, 16), std('#e9d36a', 0.5), s * 0.07, 0.026, z); w.rotation.z = Math.PI / 2; g.add(w);
   }
-  g.rotation.x = -0.22;
-  shade(g); return g;
+  shade(g); g.add(contact(0.3, 0.85, 0.45));
+  return g;
 }
-
 export function mosesBasket() {
   const g = G();
   const wick = std('#ffffff', 0.9, { map: knitTexture('#c9a774', 31) });
@@ -552,9 +553,8 @@ export function jigsaw(seed = 3) {
   }
   for (let k = 0; k < 40; k++) { x.fillStyle = r() < 0.5 ? '#6f8aa0' : '#e9c49a'; x.fillRect(380 + r() * 120, r() * 340, 22, 20); }
   const g = G();
-  const p = mesh(new THREE.PlaneGeometry(0.62, 0.44).rotateX(-Math.PI / 2), std('#ffffff', 0.7, { map: toTex(c) }), 0, 0.003, 0);
+  const p = mesh(new THREE.PlaneGeometry(0.5, 0.35).rotateX(-Math.PI / 2), std('#ffffff', 0.7, { map: toTex(c) }), 0, 0.003, 0);
   p.receiveShadow = true; g.add(p);
-  g.add(mesh(rbox(0.3, 0.05, 0.2, 0.004), std('#3d5a73', 0.6), 0.44, 0.025, -0.1));
   return g;
 }
 export function tablet() {
