@@ -42,7 +42,7 @@ export function floorTextures() {
     let y = -r() * 900;
     while (y < S) {
       const len = 520 + r() * 640;
-      const hue = 26 + r() * 8, sat = 38 + r() * 14, lit = 40 + r() * 14;
+      const hue = 27 + r() * 7, sat = 28 + r() * 12, lit = 40 + r() * 13;
       x.fillStyle = `hsl(${hue},${sat}%,${lit}%)`;
       x.fillRect(i * pw, y, pw, len);
       // grain

@@ -1,5 +1,6 @@
 // Plants that grow with the household. Pure functions of age.
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { std, mesh, leafGeo, tube, shade, C } from './build.js';
 import { pot } from './objects.js';
 import { rng, smooth, keys, clamp, lerp } from './util.js';
@@ -18,10 +19,10 @@ export function heroPlant(parent, at) {
   const r = rng(404);
   const vigor = (a) => keys(a, [[20, 0.5], [25, 0.62], [30, 0.82], [34, 0.95], [38, 1.12], [45, 1.32]]);
   const leaves = [];
-  const leafGreen = C('#3f5a35'), leafOld = C('#9b8a4a');
-  const N = 26;
+  const leafGreen = C('#4d6c3c'), leafOld = C('#a8944e');
+  const N = 34;
   for (let i = 0; i < N; i++) {
-    const birth = 20.5 + i * (24 / N) + r() * 0.5;
+    const birth = 19.5 + i * (25 / N) + r() * 0.5;
     const life = 6 + r() * 5;
     const az = (i * 2.399) % (Math.PI * 2); // golden angle
     const g = new THREE.Group();
@@ -29,8 +30,8 @@ export function heroPlant(parent, at) {
     const petMesh = mesh(new THREE.CylinderGeometry(0.008, 0.012, 1, 6).translate(0, 0.5, 0), std('#4f6a3c', 0.6));
     pet.add(petMesh);
     const blade = new THREE.Group();
-    const mat = std('#3f5a35', 0.55, { side: THREE.DoubleSide, transparent: true });
-    const bl = mesh(leafGeo(1, 0.36, { curl: 0.18 + r() * 0.12, fold: 0.35, segL: 16, segW: 6 }), mat);
+    const mat = std('#4d6c3c', 0.5, { side: THREE.DoubleSide, transparent: true, emissive: C('#5a7a20'), emissiveIntensity: 0.06 });
+    const bl = mesh(leafGeo(1, 0.42, { curl: 0.16 + r() * 0.14, fold: 0.3, segL: 16, segW: 6 }), mat);
     bl.rotation.z = (r() - 0.5) * 0.6; // twist
     blade.add(bl);
     g.add(pet, blade);
@@ -133,12 +134,18 @@ export function olive(parent, at) {
   const trunk = mesh(tube([[0, 0.3, 0], [0.03, 0.7, 0.02], [-0.02, 1.0, 0.0]], 0.025, 10, 6), std('#5a4a3a', 0.8));
   g.add(trunk);
   const r = rng(12);
-  const lm = std('#6f7d5a', 0.7, { side: THREE.DoubleSide });
-  for (let i = 0; i < 160; i++) {
-    const a = r() * 6.28, rr = Math.sqrt(r()) * 0.33, y = 0.95 + (r() - 0.4) * 0.45;
-    const lf = mesh(leafGeo(0.07, 0.018, { shape: 'lance', segL: 3, segW: 2 }), lm, Math.cos(a) * rr, y, Math.sin(a) * rr);
-    lf.rotation.set(r() * 3, r() * 3, r() * 3); g.add(lf);
+  const lm = std('#7a8a62', 0.7, { side: THREE.DoubleSide });
+  for (const [x, z] of [[0.12, 0.05], [-0.1, -0.06]]) g.add(mesh(tube([[0, 0.8, 0], [x, 1.05, z]], 0.012, 6, 5), std('#5a4a3a', 0.8)));
+  const base = leafGeo(0.085, 0.022, { shape: 'lance', segL: 3, segW: 2 });
+  const parts = [];
+  const o = new THREE.Object3D();
+  for (let i = 0; i < 700; i++) {
+    const a = r() * 6.28, rr = Math.pow(r(), 0.4) * 0.36, y = 1.0 + (r() - 0.45) * 0.5 * (1 - rr);
+    o.position.set(Math.cos(a) * rr, y, Math.sin(a) * rr * 0.8);
+    o.rotation.set(r() * 3, r() * 3, r() * 3); o.updateMatrix();
+    parts.push(base.clone().applyMatrix4(o.matrix));
   }
+  g.add(mesh(mergeGeometries(parts), lm));
   shade(g);
   return g;
 }

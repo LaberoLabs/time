@@ -9,6 +9,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 
 class AOPass extends GTAOPass {
+  setSize(w, h) { super.setSize(Math.ceil(w / 2), Math.ceil(h / 2)); }
   render(renderer, writeBuffer, readBuffer, dt, mask) {
     const hidden = [];
     this.scene.traverse((o) => { if (o.userData.noAO && o.visible) { o.visible = false; hidden.push(o); } });

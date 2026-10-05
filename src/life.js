@@ -45,11 +45,10 @@ export function buildLife(scene, ctx) {
   });
 
   // ================================================================ coats (draped over chair backs) and bags
-  const coat1 = add(O.chairCoat('#8a5a3a', 1, 0.44), 0, 0.965, -0.215, { follow: chairA, settle: [0, 0.06, 0] });
+  const coat1 = add(O.chairCoat('#8a5a3a', 1, 0.44, 0.4), 0, 0.965, -0.215, { follow: chairA, settle: [0, 0.06, 0] });
   const scarf = add(O.chairCoat('#b5523b', 4, 0.2, 0.42, 0.012), 0.04, 0.99, -0.215, { follow: chairA, in: 30.6, settle: [0, 0.04, 0] });
-  const coat2 = add(O.chairCoat('#3e4a3a', 2, 0.44), 0, 0.93, -0.19, { follow: chairB, in: 28.3, settle: [0, 0.06, 0] });
-  const kidCoat = add(O.chairCoat('#d9a22a', 3, 0.34, 0.36), 0, 0.96, -0.2, { follow: kidChair, in: 38.8, out: 41.6, settle: [0, 0.05, 0] });
-  const kidCoat2 = add(O.chairCoat('#2c3e58', 5, 0.38, 0.44), 0, 0.96, -0.2, { follow: kidChair, in: 41.6, settle: [0, 0.05, 0] });
+  const coat2 = add(O.chairCoat('#b7a48a', 2, 0.44, 0.34), 0, 0.93, -0.19, { follow: chairB, in: 28.3, settle: [0, 0.06, 0] });
+  const kidCoat = add(O.chairCoat('#d9a22a', 3, 0.34, 0.36), 0, 0.96, -0.2, { follow: kidChair, in: 38.8, out: 41.4, settle: [0, 0.05, 0] });
   add(O.backpack('#c4532e'), 0.3, 0.32, -0.08, { follow: kidChair, in: 40.6, settle: [0, 0.05, 0] }).rotation.x = 0;
 
   // ================================================================ table top
@@ -117,11 +116,11 @@ export function buildLife(scene, ctx) {
   add(O.pencilCase(), T.x - 0.62, ty, T.z - 0.05, { in: 40.8, ry: 0.4 });
 
   // ================================================================ bed
-  add(O.throwBlanket('#5a5652', 2, 0.55, 0.6), -2.55, 0.585, 1.35, {
+  add(O.throwBlanket('#6a6560', 2, 0.42, 0.34), -2.42, 0.6, 1.0, {
     ry: 0.4, settle: [0, 0.05, 0],
-    path: [[25, [-2.55, 0.585, 1.35], 0.4], [29, [-3.2, 0.585, 1.25], 1.1], [33, [-2.5, 0.585, 1.0], 0.2], [38, [-3.0, 0.585, 1.4], 0.9]],
+    path: [[25, [-2.42, 0.6, 1.0], 0.4], [29, [-3.25, 0.6, 1.1], 1.1], [33, [-2.5, 0.6, 1.55], 0.2], [38, [-3.1, 0.6, 1.3], 0.9]],
   });
-  add(O.throwBlanket('#8a3f2a', 5, 1.5, 0.5), -2.82, 0.6, 1.85, { in: 29.0, fi: 0.5, ry: 0.03, settle: [0, 0.08, 0] });
+  add(O.throwBlanket('#8a3f2a', 5, 0.9, 0.6), -2.42, 0.61, 1.3, { in: 29.0, fi: 0.5, ry: 0.32, settle: [0, 0.08, 0] });
   add(O.cushion('#9a5b3e'), -3.15, 0.6, 0.62, { in: 30.6, ry: 0.15 });
   add(O.cushion('#6f7a5f', 0.38), -2.48, 0.6, 0.64, { in: 31.2, ry: -0.2 });
 

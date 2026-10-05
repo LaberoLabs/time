@@ -20,13 +20,13 @@ export function buildExterior(scene, sunVisDir) {
     sunDir: { value: sunVisDir.clone() },
     uCloud: { value: 0 },
     uTime: { value: 0 },
-    zenith: { value: lin('#2e3a6e') },
-    mid: { value: lin('#c98a9a') },
-    horizon: { value: lin('#f7a066') },
+    zenith: { value: lin('#3c4c8a') },
+    mid: { value: lin('#d98a8c') },
+    horizon: { value: lin('#ff9a52') },
     sunCol: { value: lin('#fff0c8') },
     glowCol: { value: lin('#ff9a4a') },
-    cloudLit: { value: lin('#ffb08a') },
-    cloudDark: { value: lin('#8a6a8c') },
+    cloudLit: { value: lin('#ffa070') },
+    cloudDark: { value: lin('#9a6680') },
   };
   const sky = new THREE.Mesh(
     new THREE.SphereGeometry(4000, 64, 32),
@@ -40,8 +40,8 @@ export function buildExterior(scene, sunVisDir) {
           vec3 d = normalize(vDir);
           float e = d.y;
           float sd = max(dot(d, normalize(sunDir)), 0.);
-          vec3 col = mix(horizon, mid, smoothstep(0.0, 0.16, e));
-          col = mix(col, zenith, smoothstep(0.12, 0.6, e));
+          vec3 col = mix(horizon, mid, smoothstep(0.0, 0.07, e));
+          col = mix(col, zenith, smoothstep(0.06, 0.26, e));
           col += glowCol * pow(sd, 10.) * 0.35 + glowCol * pow(sd, 120.) * 0.7 + sunCol * pow(sd, 3000.) * 2.;
           // clouds: long horizontal streaks
           float dy = max(d.y + 0.08, 0.03);
@@ -50,10 +50,11 @@ export function buildExterior(scene, sunVisDir) {
           cp.x += uCloud * 0.18 + uTime * 0.002;
           float n = fbm(cp * vec2(0.55, 1.6));
           float band = smoothstep(0.02, 0.06, e) * (1. - smoothstep(0.22, 0.45, e));
-          float c = smoothstep(0.50, 0.78, n) * band;
+          float c = smoothstep(0.47, 0.72, n) * band;
           float lit = pow(sd, 3.) * 0.8 + 0.25;
           vec3 cc = mix(cloudDark, cloudLit * (1.0 + 3. * pow(sd, 12.)), clamp(lit + (n - 0.6) * 1.5, 0., 1.));
           col = mix(col, cc, c * 0.85);
+          col *= 0.72;
           // sun disc
           float disc = smoothstep(0.99955, 0.9997, sd);
           col += sunCol * disc * 9.;
@@ -69,7 +70,7 @@ export function buildExterior(scene, sunVisDir) {
   // ------------------------------------------------------------ water
   const waterU = {
     sunDir: skyU.sunDir, uTime: skyU.uTime,
-    deep: { value: lin('#2c2a48') }, far: { value: lin('#c98a7c') }, glint: { value: lin('#ffb870') },
+    deep: { value: lin('#24224a') }, far: { value: lin('#a8707c') }, glint: { value: lin('#ff9a50') },
     camPos: { value: new THREE.Vector3() },
   };
   const water = new THREE.Mesh(
@@ -103,8 +104,8 @@ export function buildExterior(scene, sunVisDir) {
   // ------------------------------------------------------------ far shore + city
   const r = rng(77);
   const shoreDist = 1500;
-  const cityMat = new THREE.MeshBasicMaterial({ color: lin('#9a7088'), fog: false });
-  const cityMat2 = new THREE.MeshBasicMaterial({ color: lin('#b88896'), fog: false });
+  const cityMat = new THREE.MeshBasicMaterial({ color: lin('#a87488'), fog: false });
+  const cityMat2 = new THREE.MeshBasicMaterial({ color: lin('#c48e98'), fog: false });
   const hillMat = new THREE.MeshBasicMaterial({ color: lin('#b48e98'), fog: false });
   const geos = [], geos2 = [];
   // land strip
@@ -165,16 +166,16 @@ export function buildExterior(scene, sunVisDir) {
   ext.add(hills);
 
   // ------------------------------------------------------------ boats (age-driven)
-  const boatMat = new THREE.MeshBasicMaterial({ color: lin('#f3d9c4') });
-  const boatDark = new THREE.MeshBasicMaterial({ color: lin('#4a3a48') });
+  const boatMat = new THREE.MeshBasicMaterial({ color: lin('#f0c8b0') });
+  const boatDark = new THREE.MeshBasicMaterial({ color: lin('#6a4a5c') });
   const boats = [];
   for (let i = 0; i < 3; i++) {
     const b = new THREE.Group();
-    const hull = new THREE.Mesh(new THREE.BoxGeometry(14, 2.4, 4), boatDark);
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(7, 3, 3.4), boatMat);
-    cabin.position.set(1, 2.6, 0);
-    b.add(hull, cabin);
-    b.userData = { z: -320 - i * 260, speed: [9, -6, 4][i], phase: [0.2, 0.55, 0.8][i] };
+    const hull = new THREE.Mesh(new THREE.BoxGeometry(9, 1.2, 2.5), boatDark);
+    const sail = new THREE.Mesh(new THREE.ConeGeometry(2.6, 11, 3), boatMat);
+    sail.position.set(0.5, 6, 0); sail.scale.z = 0.15;
+    b.add(hull, sail);
+    b.userData = { z: -700 - i * 300, speed: [9, -6, 4][i], phase: [0.2, 0.55, 0.8][i] };
     ext.add(b);
     boats.push(b);
   }

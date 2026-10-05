@@ -103,6 +103,7 @@ export function drapeGeo(w, d, drop, { seg = 64, wr = 0.012, seed = 1, sag = 0.0
     let y = 0;
     // folds
     y += Math.sin(x * 9 * f + Math.sin(z * 4 * f + s) * 1.5 + s) * wr;
+    y += Math.sin(x * 3.1 * f + z * 2.2 * f + s * 0.7) * wr * 1.4; // broad lumps
     y += Math.sin(z * 7 * f + Math.cos(x * 5 * f + s) * 2.0) * wr * 0.8;
     y += Math.sin((x + z) * 17 * f + s * 2) * wr * 0.3;
     // gentle sag towards middle-edges

@@ -335,18 +335,37 @@ export function scarf(color = '#b5523b') {
 }
 
 // ------------------------------------------------------------------ shoes (pair), origin floor centre, toes +z
+function shoeGeo(kind) {
+  const L = 0.27, W = 0.098;
+  const g = new THREE.BoxGeometry(1, 1, 1, 10, 5, 18);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const u = p.getX(i) + 0.5, v = p.getY(i) + 0.5, w = p.getZ(i) + 0.5; // 0..1 ; w: heel->toe
+    // outline: rounded toe, narrower heel, slight inward curve
+    const width = W * (0.72 + 0.28 * Math.sin(Math.PI * Math.min(1, w * 1.15))) * (w > 0.85 ? Math.sqrt(Math.max(0, 1 - Math.pow((w - 0.85) / 0.16, 2))) * 0.85 + 0.15 : 1);
+    const top = kind === 'boot' ? (w < 0.42 ? 0.17 : 0.17 - (w - 0.42) * 0.22) : (w < 0.35 ? 0.085 : 0.085 - (w - 0.35) * 0.075);
+    const x = (u - 0.5) * width;
+    const round = Math.sqrt(Math.max(0, 1 - Math.pow((u - 0.5) * 2, 4)));
+    const y = v * top * (0.55 + 0.45 * round);
+    p.setXYZ(i, x, y, (w - 0.5) * L);
+  }
+  g.computeVertexNormals();
+  return g;
+}
 export function shoes(kind = 'sneaker', color = '#efeae2', size = 1) {
   const g = G();
-  const sole = std(kind === 'boot' ? '#2a1d16' : '#f4f1ea', 0.7);
-  const up = std(color, kind === 'boot' ? 0.55 : 0.8);
+  const sole = std(kind === 'boot' ? '#2a1d16' : '#f4f1ea', 0.75);
+  const up = std(color, kind === 'boot' ? 0.5 : 0.8, { bumpMap: linenBump(14), bumpScale: kind === 'boot' ? 0.1 : 0.4 });
+  const ug = shoeGeo(kind);
   for (const s of [-1, 1]) {
     const sh = G();
-    sh.add(mesh(rbox(0.095, 0.025, 0.27, 0.012), sole, 0, 0.0125, 0));
-    const u = mesh(new THREE.SphereGeometry(0.06, 20, 14), up, 0, 0.035, 0.04); u.scale.set(0.78, 0.6, 2.0); sh.add(u);
-    const heel = mesh(new THREE.SphereGeometry(0.05, 16, 12), up, 0, 0.05, -0.08); heel.scale.set(0.9, kind === 'boot' ? 2.4 : 1.1, 0.9); sh.add(heel);
-    if (kind === 'boot') { const shaft = mesh(new THREE.CylinderGeometry(0.045, 0.048, 0.12, 16), up, 0, 0.12, -0.07); sh.add(shaft); }
-    sh.position.x = s * 0.065; sh.rotation.y = s * 0.08 + (s > 0 ? 0.1 : 0);
-    sh.position.z = s > 0 ? 0.02 : 0;
+    sh.add(mesh(ug, up, 0, 0.012, 0));
+    const so = mesh(rbox(0.1, 0.018, 0.275, 0.008), sole, 0, 0.009, 0.002); sh.add(so);
+    const open = mesh(new THREE.CircleGeometry(0.03, 16).rotateX(-Math.PI / 2), std('#2a221c', 0.9), 0, (kind === 'boot' ? 0.182 : 0.098), -0.07);
+    open.scale.set(1, 1, 1.5); sh.add(open);
+    if (kind !== 'boot') { const lace = mesh(new THREE.BoxGeometry(0.04, 0.004, 0.06), std('#f8f6f0', 0.6), 0, 0.085, 0.0); lace.rotation.x = -0.32; sh.add(lace); }
+    sh.position.x = s * 0.062; sh.rotation.y = s * 0.06 + (s > 0 ? 0.12 : 0);
+    sh.position.z = s > 0 ? 0.03 : 0;
     g.add(sh);
   }
   g.scale.setScalar(size);
@@ -416,14 +435,15 @@ export function skateboard() {
 export function mosesBasket() {
   const g = G();
   const wick = std('#ffffff', 0.9, { map: knitTexture('#c9a774', 31) });
-  const b = mesh(lathe([[0, 0], [0.3, 0], [0.33, 0.06], [0.35, 0.22], [0.33, 0.24], [0.31, 0.08], [0, 0.04]], 40), wick, 0, 0.42, 0);
+  const b = mesh(lathe([[0, 0], [0.3, 0], [0.33, 0.06], [0.35, 0.22], [0.33, 0.24], [0.31, 0.08], [0, 0.04]], 40), wick, 0, 0.44, 0);
   b.scale.set(0.62, 1, 1.22); g.add(b);
   const lin = mesh(new THREE.CylinderGeometry(0.31, 0.31, 0.02, 32), std('#f4efe6', 0.95), 0, 0.6, 0); lin.scale.set(0.6, 1, 1.18); g.add(lin);
   const blanket = mesh(drapeGeo(0.3, 0.42, 0.04, { seg: 30, wr: 0.01, seed: 4 }), std('#cfd9cf', 0.95, { bumpMap: linenBump(3), bumpScale: 0.6 }), 0, 0.615, 0.08); g.add(blanket);
   const stand = std('#6b4a32', 0.5);
-  for (const z of [-0.28, 0.28]) for (const s of [-1, 1]) {
-    const l = mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.58, 8), stand, 0, 0.27, z); l.rotation.x = s * 0.38; g.add(l);
+  for (const z of [-0.3, 0.3]) for (const s of [-1, 1]) {
+    const l = mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.5, 8), stand, 0, 0.23, z); l.rotation.z = s * 0.42; g.add(l);
   }
+  for (const x of [-0.16, 0.16]) { const rl = mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.62, 8), stand, x, 0.43, 0); rl.rotation.x = Math.PI / 2; g.add(rl); }
   shade(g); g.add(contact(0.6, 0.9, 0.5));
   return g;
 }

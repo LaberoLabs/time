@@ -32,7 +32,7 @@ function tableHistory() {
   x.globalCompositeOperation = 'darken';
   const v = (age) => Math.max(0, Math.min(250, encAge(age)));
   // top is 2.0 x 0.95 m ; u along x, v along z (v=0 at back edge -z? box top: v along -z). helper in metres:
-  const P = (mx, mz) => [((mx + 0.9) / 1.8) * W, ((mz + 0.46) / 0.92) * H];
+  const P = (mx, mz) => [((mx + 0.85) / 1.7) * W, ((mz + 0.45) / 0.9) * H];
   // ring stains (G)
   const ring = (mx, mz, age, rad = 0.036) => {
     const [px, py] = P(mx, mz);
@@ -53,7 +53,7 @@ function tableHistory() {
     x.stroke();
   };
   for (let i = 0; i < 20; i++) scratch(25.3 + r() * 9, (r() - 0.5) * 1.8, (r() - 0.5) * 0.8);
-  for (let i = 0; i < 90; i++) scratch(34.5 + r() * 10.5, -0.95 + Math.pow(r(), 1.6) * 1.4, (r() - 0.5) * 0.85);
+  for (let i = 0; i < 55; i++) scratch(34.5 + r() * 10.5, -0.95 + Math.pow(r(), 1.6) * 1.4, (r() - 0.5) * 0.85);
   // crayon (B): child's scribbles off the edge of paper
   for (let i = 0; i < 26; i++) {
     const age = 36.3 + r() * 3.2;
@@ -115,7 +115,7 @@ export function buildRoom(scene, ctx) {
   // ------------------------------------------------------------ materials
   const fl = floorTextures();
   const floorMat = withHistory(
-    std('#ffffff', 0.55, { map: fl.map, bumpMap: fl.bump, bumpScale: 1.2 }),
+    std('#f2ece6', 0.66, { map: fl.map, bumpMap: fl.bump, bumpScale: 1.2 }),
     floorHistory(), ctx.ageU, /* glsl */`
       { vec4 hs = texture2D(uHist, vHUv);
         float wear = clamp((uAgeEnc - hs.r) * 2.2, 0., 1.) * (1. - hs.r);
@@ -246,7 +246,7 @@ export function buildRoom(scene, ctx) {
     g.translate(0, -H / 2, 0);
     const base = g.attributes.position.array.slice();
     const m = mesh(g, curtainMat, cx, 2.72, 0.09);
-    m.castShadow = true; m.receiveShadow = true;
+    m.castShadow = true; m.receiveShadow = true; m.userData.noAO = true;
     m.customDepthMaterial = new THREE.MeshDepthMaterial({ alphaHash: true, opacity: 0.45 });
     m.renderOrder = 3;
     room.add(m);
@@ -294,12 +294,12 @@ export function buildRoom(scene, ctx) {
   const sheetMat = std('#efe9df', 0.95, { bumpMap: linenB, bumpScale: 0.4 });
   bed.add(mesh(rbox(bw - 0.04, 0.22, bd - 0.1, 0.06, 4), sheetMat, bcx, 0.42, bz0 + 0.06 + (bd - 0.1) / 2));
   const duvetMat = std('#f3eee6', 0.95, { bumpMap: linenB, bumpScale: 0.5 });
-  const duvet = mesh(drapeGeo(bw - 0.02, bd - 0.62, 0.3, { seg: 90, wr: 0.016, seed: 2, sag: 0.0 }), duvetMat, bcx, 0.565, bz0 + 0.62 + (bd - 0.62) / 2 - 0.02);
+  const duvet = mesh(drapeGeo(bw - 0.02, bd - 0.62, 0.26, { seg: 110, wr: 0.024, seed: 2, sag: 0.0, freq: 0.8 }), duvetMat, bcx, 0.565, bz0 + 0.62 + (bd - 0.62) / 2 - 0.02);
   bed.add(duvet);
   // folded-back top edge of duvet
   const fold = mesh(rbox(bw - 0.02, 0.06, 0.2, 0.03, 4), duvetMat, bcx, 0.57, bz0 + 0.66);
   fold.rotation.x = 0.1; bed.add(fold);
-  const pilMat = std('#f6f2ea', 0.95, { bumpMap: linenB, bumpScale: 0.3 });
+  const pilMat = std('#fbf7f0', 0.95, { bumpMap: linenB, bumpScale: 0.3, emissive: C('#3a2a20'), emissiveIntensity: 0.25 });
   const p1 = mesh(pillowGeo(0.66, 0.22, 0.46), pilMat, bx0 + 0.42, 0.64, 0.3); p1.rotation.set(-0.55, 0.05, 0.03); bed.add(p1);
   const p2 = mesh(pillowGeo(0.66, 0.2, 0.46), pilMat, bx1 - 0.4, 0.63, 0.31); p2.rotation.set(-0.5, -0.06, -0.03); bed.add(p2);
   shade(bed);
@@ -331,18 +331,18 @@ export function buildRoom(scene, ctx) {
 
   // table
   const table = new THREE.Group(); room.add(table);
-  const topMat = withHistory(std('#ffffff', 0.42, { map: woodTexture([26, 40, 34], 12) }), tableHistory(), ctx.ageU, /* glsl */`
+  const topMat = withHistory(std('#ffffff', 0.36, { map: woodTexture([24, 42, 30], 12, 1024, 260) }), tableHistory(), ctx.ageU, /* glsl */`
     { vec4 hs = texture2D(uHist, vHUv);
       float sc = smoothstep(hs.r, hs.r + 0.006, uAgeEnc);
       float st = smoothstep(hs.g, hs.g + 0.01, uAgeEnc);
       float cr = smoothstep(hs.b, hs.b + 0.006, uAgeEnc);
-      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.35 + vec3(0.03, 0.02, 0.012), sc * 0.4);
-      roughnessFactor = mix(roughnessFactor, 0.85, max(sc, st * 0.6));
+      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.22 + vec3(0.012, 0.008, 0.004), sc * 0.22);
+      roughnessFactor = mix(roughnessFactor, 0.5, max(sc * 0.5, st * 0.6));
       diffuseColor.rgb *= 1. - st * 0.28;
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.25, 0.08, 0.06), cr * 0.45);
       float years = clamp(uAgeEnc / 0.98, 0., 1.);
       diffuseColor.rgb *= 1. - years * 0.08; }`);
-  const tcx = TABLE.x, tcz = TABLE.z, tw = 1.8, td = 0.92, th = TABLE.y;
+  const tcx = TABLE.x, tcz = TABLE.z, tw = 1.7, td = 0.9, th = TABLE.y;
   const top = mesh(new THREE.BoxGeometry(tw, 0.05, td), [darkWood, darkWood, topMat, darkWood, darkWood, darkWood], 0, th - 0.025, 0);
   table.add(top);
   table.add(mesh(new THREE.BoxGeometry(tw - 0.2, 0.09, td - 0.2), darkWood, 0, th - 0.095, 0));
@@ -409,15 +409,17 @@ export function buildRoom(scene, ctx) {
   sky2.lookAt((D.x0 + D.x1) / 2, 2.8, 4);
   room.add(sky2);
 
-  const bounce = new THREE.PointLight(C('#ff9c60'), 1.6, 7, 1.5);
+  const bounce = new THREE.PointLight(C('#ffae7a'), 1.9, 7, 1.5);
   bounce.position.set(-0.6, 0.35, 2.4); room.add(bounce);
   ctx.bounce = bounce;
+  const bounce2 = new THREE.PointLight(C('#ffb488'), 1.1, 5, 1.6);
+  bounce2.position.set(0.3, 0.45, 1.0); room.add(bounce2);
   const hemi = new THREE.HemisphereLight(C('#7a6c8c'), C('#4a2c1c'), 0.3);
   room.add(hemi);
 
   // ------------------------------------------------------------ sun shafts (ray-marched inside a sheared box)
   const beamU = {
-    uDir: { value: new THREE.Vector3(0, -0.5, 1) }, uCol: { value: C('#ffb47e') }, uInt: { value: 0.14 },
+    uDir: { value: new THREE.Vector3(0, -0.5, 1) }, uCol: { value: C('#ffb47e') }, uInt: { value: 0.3 },
     uRect: { value: new THREE.Vector4(D.x0, D.x1, 0.0, D.h) }, uZ: { value: -wall }, uLen: { value: 7.0 }, uTime: { value: 0 },
   };
   const beamGeo = new THREE.BufferGeometry();

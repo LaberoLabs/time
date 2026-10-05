@@ -11,10 +11,14 @@ const AGE0 = 25, AGE1 = 45;
 // ------------------------------------------------------------------ renderer
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+const PR_MAX = Math.min(window.devicePixelRatio, 1.5);
+let pr = PR_MAX;
+renderer.setPixelRatio(pr);
 renderer.setSize(innerWidth, innerHeight, false);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -107,7 +111,7 @@ function step(dt, t) {
   const vel = Math.abs(age - prev) / Math.max(dt, 1e-3); // years per second
 
   // temporal smear: only when scrubbing years quickly; vanishes at rest
-  const want = clamp((vel - 1.2) / 9, 0, 1) * 0.78;
+  const want = clamp((vel - 2.0) / 14, 0, 1) * 0.6;
   smear += (want - smear) * (1 - Math.exp(-dt * (want > smear ? 6 : 9)));
   if (want === 0 && smear < 0.015) smear = 0;
   post.smear.amount = smear;
@@ -123,16 +127,33 @@ function step(dt, t) {
   if (params.has('raw')) renderer.render(scene, camera); else post.composer.render(dt);
   if (first) { first = false; canvas.classList.add('on'); document.body.classList.add('ready'); }
 }
+// adaptive resolution: keep motion smooth on slower GPUs
+let perfAcc = 0, perfN = 0;
+function adapt(dt) {
+  perfAcc += dt; perfN++;
+  if (perfN < 90) return;
+  const avg = perfAcc / perfN; perfAcc = 0; perfN = 0;
+  let next = pr;
+  if (avg > 0.026 && pr > 0.8) next = Math.max(0.8, pr - 0.2);
+  else if (avg < 0.0135 && pr < PR_MAX) next = Math.min(PR_MAX, pr + 0.1);
+  if (next !== pr) { pr = next; renderer.setPixelRatio(pr); resize(); }
+}
+let frameNo = 0;
 function frame() {
   const dt = Math.min(clock.getDelta(), 0.1);
+  // shadows refresh at half rate unless time is moving
+  frameNo++;
+  renderer.shadowMap.needsUpdate = frameNo % 2 === 0 || Math.abs(target - age) > 1e-4;
   step(dt, clock.elapsedTime);
+  if (!document.hidden) adapt(dt);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 // render synchronously (for capture when the tab is hidden)
 window.__time.render = (n = 1, settle = true) => {
+  renderer.shadowMap.needsUpdate = true;
   for (let i = 0; i < n; i++) { manualT += 1 / 60; step(1 / 60, clock.elapsedTime + manualT); }
-  if (settle) { age = target; step(1 / 60, clock.elapsedTime + manualT); }
+  if (settle) { age = target; renderer.shadowMap.needsUpdate = true; step(1 / 60, clock.elapsedTime + manualT); }
   return age;
 };
 window.__time.shot = (a) => {
@@ -153,4 +174,18 @@ window.__time.save = async (a, name, crop) => {
   } else url = canvas.toDataURL('image/png');
   await fetch('/__shot?name=' + encodeURIComponent(name), { method: 'POST', body: url });
   return name;
+};
+// simulate a scrub: move target from a to b over `secs`, capture mid-way (dev only)
+window.__time.scrub = async (a, b, secs, name, at = 0.6) => {
+  window.__time.setAge(a); window.__time.render(3);
+  const n = Math.round(secs * 60);
+  for (let i = 1; i <= n; i++) {
+    target = a + (b - a) * (i / n);
+    manualT += 1 / 60; step(1 / 60, clock.elapsedTime + manualT);
+    if (i === Math.round(n * at)) {
+      const url = canvas.toDataURL('image/png');
+      await fetch('/__shot?name=' + name, { method: 'POST', body: url });
+    }
+  }
+  return { age, smear: post.smear.amount };
 };
