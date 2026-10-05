@@ -128,7 +128,7 @@ export function candle() {
   const brass = std('#b08a4a', 0.28, { metalness: 0.85 });
   g.add(mesh(lathe([[0, 0], [0.045, 0], [0.047, 0.008], [0.02, 0.016], [0.014, 0.06], [0.022, 0.07], [0.022, 0.08], [0.012, 0.08], [0, 0.08]], 32), brass));
   const wax = mesh(new THREE.CylinderGeometry(0.011, 0.011, 1, 16), std('#efe6d6', 0.6, { emissive: C('#ffb060'), emissiveIntensity: 0.12 }));
-  wax.position.y = 0.08; g.add(wax);
+  wax.scale.y = 0.2; wax.position.y = 0.18; g.add(wax);
   const flame = mesh(new THREE.SphereGeometry(0.006, 12, 8), new THREE.MeshBasicMaterial({ color: C('#ffcc80').multiplyScalar(18) }));
   flame.scale.set(1, 2.4, 1); g.add(flame);
   shade(g); flame.castShadow = false;
@@ -203,7 +203,7 @@ export function fruitBowl() {
   return g;
 }
 
-export function vaseStems(kind = 'euc') {
+export function vaseStems(kind = 'euc', spread = 1) {
   const g = G();
   const glass = new THREE.MeshPhysicalMaterial({ color: C('#d9e4dc'), roughness: 0.05, transparent: true, opacity: 0.35, envMapIntensity: 2, depthWrite: false });
   g.add(mesh(lathe([[0, 0], [0.05, 0], [0.055, 0.06], [0.045, 0.16], [0.03, 0.2], [0.034, 0.215], [0, 0.215]], 32), glass));
@@ -212,7 +212,7 @@ export function vaseStems(kind = 'euc') {
   const leafMat = std(kind === 'euc' ? '#8fa38f' : '#c48a5a', 0.6, { side: THREE.DoubleSide });
   leafMat.name = 'leaf';
   for (let i = 0; i < 7; i++) {
-    const a = r() * 6.28, lean = 0.15 + r() * 0.35, L = 0.35 + r() * 0.25;
+    const a = r() * 6.28, lean = (0.1 + r() * 0.18) * spread, L = 0.35 + r() * 0.25;
     const tip = [Math.cos(a) * lean * L, 0.2 + L, Math.sin(a) * lean * L];
     const st = mesh(tube([[0, 0.05, 0], [tip[0] * 0.4, 0.2 + L * 0.5, tip[2] * 0.4], tip], 0.0025, 12, 4), stemMat); g.add(st);
     for (let k = 0; k < 7; k++) {
@@ -369,8 +369,8 @@ export function shoes(kind = 'sneaker', color = '#efeae2', size = 1) {
     const open = mesh(new THREE.CircleGeometry(0.03, 16).rotateX(-Math.PI / 2), std('#2a221c', 0.9), 0, (kind === 'boot' ? 0.182 : 0.098), -0.07);
     open.scale.set(1, 1, 1.5); sh.add(open);
     if (kind !== 'boot') { const lace = mesh(new THREE.BoxGeometry(0.04, 0.004, 0.06), std('#f8f6f0', 0.6), 0, 0.085, 0.0); lace.rotation.x = -0.32; sh.add(lace); }
-    sh.position.x = s * 0.062; sh.rotation.y = s * 0.06 + (s > 0 ? 0.12 : 0);
-    sh.position.z = s > 0 ? 0.03 : 0;
+    sh.position.x = s * 0.06; sh.rotation.y = s * 0.025;
+    sh.position.z = s > 0 ? 0.02 : 0;
     g.add(sh);
   }
   g.scale.setScalar(size);
@@ -396,7 +396,7 @@ export function ball(colors = ['#d8432f', '#f4f1ea'], rad = 0.09) {
   colors.forEach((col, i) => { x.fillStyle = col; x.fillRect(0, (i * 128) / colors.length, 256, 128 / colors.length); });
   const g = G();
   const b = mesh(new THREE.SphereGeometry(rad, 32, 20), std('#ffffff', 0.45, { map: toTex(c) }), 0, rad, 0);
-  b.rotation.z = 0.6; g.add(b);
+  g.add(b);
   shade(g); g.add(contact(rad * 3.2, rad * 3.2, 0.6));
   return g;
 }
@@ -742,7 +742,7 @@ export function openBook(color = '#5a3a2a') {
 }
 export function bouquet(cols = ['#e9b4b0', '#f6f1e8', '#d98a6a', '#c9a0b4']) {
   // garden flowers among the eucalyptus: small heads at different heights, a few still closed
-  const g = vaseStems('euc');
+  const g = vaseStems('euc', 0.6);
   const r = rng(cols.length * 7 + 3);
   for (let i = 0; i < 11; i++) {
     const a = r() * 6.28, lean = 0.04 + r() * 0.12, L = 0.26 + r() * 0.18;
@@ -761,4 +761,205 @@ export function wallTrace(w = 0.22, h = 0.165) {
   g.add(mesh(new THREE.PlaneGeometry(w, h), std('#fff8ee', 0.92, { transparent: true, opacity: 0.07, depthWrite: false }), 0, 0, 0.0015));
   for (const s of [-1, 1]) g.add(mesh(new THREE.PlaneGeometry(0.035, 0.012), std('#c9b58a', 0.6, { transparent: true, opacity: 0.35, depthWrite: false }), s * (w / 2 - 0.02), h / 2 - 0.01, 0.0018));
   return g;
+}
+
+// ================================================================== meals, drinks, evenings
+const food = (c, r = 0.7) => std(c, r);
+const cutlery = () => std('#c9c9c9', 0.25, { metalness: 0.9 });
+function fork(g, x, z, ry = 0) { const f = mesh(rbox(0.012, 0.004, 0.17, 0.002, 1), cutlery(), x, 0.003, z); f.rotation.y = ry; f.castShadow = true; g.add(f); }
+function knife(g, x, z, ry = 0) { const k = mesh(rbox(0.014, 0.003, 0.2, 0.002, 1), cutlery(), x, 0.003, z); k.rotation.y = ry; k.castShadow = true; g.add(k); }
+// a plate with something on it; cutlery inside the plate's own footprint so it never touches neighbours
+export function plateWith(kind, r = 0.13, seed = 1) {
+  const g = plate('#efe9df', r);
+  const R = rng(seed);
+  const top = 0.018;
+  if (kind === 'pasta') {
+    for (let i = 0; i < 14; i++) { const t = mesh(new THREE.TorusGeometry(0.014 + R() * 0.008, 0.004, 6, 14), food('#e8c27a', 0.6), (R() - 0.5) * 0.07, top + 0.026 + R() * 0.01, (R() - 0.5) * 0.07); t.rotation.set(R() * 3, R() * 3, R() * 3); g.add(t); }
+    g.add(mesh(new THREE.SphereGeometry(0.02, 10, 8), food('#b8402a', 0.5), 0.01, top + 0.02, 0));
+  } else if (kind === 'roast') {
+    const m = mesh(rbox(0.07, 0.025, 0.05, 0.01, 2), food('#7a4a2a', 0.6), -0.02, top + 0.012, 0.01); m.rotation.y = 0.4; g.add(m);
+    for (let i = 0; i < 3; i++) g.add(mesh(new THREE.SphereGeometry(0.015, 10, 8), food('#d9b26a'), 0.04, top + 0.012, -0.03 + i * 0.03));
+    for (let i = 0; i < 5; i++) { const b = mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.05, 6), food('#4f7a36'), -0.03 + i * 0.01, top + 0.004, -0.05); b.rotation.set(Math.PI / 2, 0, 0.3); g.add(b); }
+  } else if (kind === 'salad') {
+    for (let i = 0; i < 12; i++) { const l = mesh(new THREE.SphereGeometry(0.016, 8, 6), food(R() < 0.7 ? '#6f9a48' : '#c9402a', 0.7), (R() - 0.5) * 0.09, top + 0.008, (R() - 0.5) * 0.09); l.scale.y = 0.35; g.add(l); }
+  } else if (kind === 'toast') {
+    for (let i = 0; i < 2; i++) { const t = mesh(rbox(0.07, 0.012, 0.07, 0.008, 2), food('#d9a35a', 0.85), -0.02 + i * 0.05, top + 0.006 + i * 0.008, i * 0.02); t.rotation.y = i * 0.5; g.add(t); }
+  } else if (kind === 'croissants') {
+    for (let i = 0; i < 3; i++) { const c = mesh(new THREE.TorusGeometry(0.03, 0.014, 8, 14, Math.PI * 1.2), food('#d0903e', 0.55), (i - 1) * 0.06, top + 0.012, (i % 2) * 0.03); c.rotation.x = Math.PI / 2; c.rotation.z = i; g.add(c); }
+  } else if (kind === 'cake') {
+    const w = mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.045, 16, 1, false, 0, 0.9), food('#efe0c8', 0.7), 0, top + 0.022, 0); g.add(w);
+  } else if (kind === 'remnants') {
+    for (let i = 0; i < 6; i++) g.add(mesh(new THREE.SphereGeometry(0.005, 6, 4), food('#b8862a'), (R() - 0.5) * 0.1, top + 0.003, (R() - 0.5) * 0.1));
+  } else if (kind === 'kid') { // plastic plate look: coloured rim, small pieces
+    for (let i = 0; i < 5; i++) g.add(mesh(rbox(0.018, 0.012, 0.018, 0.004, 1), food(['#e8c27a', '#6f9a48', '#e07a22'][i % 3]), (R() - 0.5) * 0.08, top + 0.006, (R() - 0.5) * 0.08));
+  }
+  if (kind !== 'kid' && kind !== 'remnants' && kind !== 'croissants' && kind !== 'cake') { fork(g, -r * 0.62, 0, 0.1); knife(g, r * 0.62, 0, -0.08); }
+  if (kind === 'remnants') { fork(g, 0.02, 0.01, 0.9); knife(g, 0.03, -0.02, 0.8); }
+  shade(g); return g;
+}
+export function bowlWith(kind, seed = 1) {
+  const g = bowl(kind === 'soup' ? '#e6ddcf' : '#f0ebe2', 0.075, 0.05);
+  const R = rng(seed);
+  if (kind === 'soup') g.add(mesh(new THREE.CircleGeometry(0.06, 24).rotateX(-Math.PI / 2), food('#d9823a', 0.3), 0, 0.038, 0));
+  if (kind === 'cereal') {
+    g.add(mesh(new THREE.CircleGeometry(0.06, 24).rotateX(-Math.PI / 2), food('#f4f1ea', 0.3), 0, 0.036, 0));
+    for (let i = 0; i < 16; i++) { const c = mesh(new THREE.TorusGeometry(0.006, 0.003, 5, 8), food('#d9a35a'), (R() - 0.5) * 0.08, 0.04, (R() - 0.5) * 0.08); c.rotation.x = Math.PI / 2; g.add(c); }
+  }
+  const sp = mesh(rbox(0.012, 0.004, 0.13, 0.002, 1), cutlery(), 0.05, 0.05, 0.02); sp.rotation.set(0.35, 0.4, 0); sp.castShadow = true; g.add(sp);
+  return g;
+}
+export function servingDish(kind, seed = 1) {
+  const g = G(); const R = rng(seed);
+  if (kind === 'casserole') {
+    g.add(mesh(lathe([[0, 0], [0.12, 0], [0.13, 0.05], [0.125, 0.055], [0, 0.055]], 32), glazed('#d8cfc0'), 0, 0, 0)).children[0].scale.set(1, 1, 0.7);
+    const top = mesh(new THREE.CircleGeometry(0.115, 28).rotateX(-Math.PI / 2), food('#a8642a', 0.5), 0, 0.052, 0); top.scale.set(1, 1, 0.7); g.add(top);
+  } else if (kind === 'saladBowl') {
+    g.add(bowl('#6a8a8a', 0.12, 0.08));
+    for (let i = 0; i < 20; i++) { const l = mesh(new THREE.SphereGeometry(0.02, 8, 6), food(R() < 0.8 ? '#6f9a48' : '#c9402a'), (R() - 0.5) * 0.14, 0.07 + R() * 0.02, (R() - 0.5) * 0.14); l.scale.y = 0.4; g.add(l); }
+  } else if (kind === 'bread') {
+    g.add(mesh(rbox(0.3, 0.018, 0.18, 0.006, 2), std('#ffffff', 0.6, { map: woodTexture([30, 40, 55], 71, 256, 30) }), 0, 0.009, 0));
+    const loaf = mesh(new THREE.CapsuleGeometry(0.045, 0.12, 6, 12), food('#b8783a', 0.8), -0.04, 0.05, 0); loaf.rotation.z = Math.PI / 2; loaf.scale.y = 0.75; g.add(loaf);
+    for (let i = 0; i < 2; i++) { const s = mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.012, 16), food('#ecd9b0', 0.9), 0.09 + i * 0.018, 0.035, 0); s.rotation.z = Math.PI / 2 - 0.4; g.add(s); }
+  } else if (kind === 'cheese') {
+    g.add(mesh(rbox(0.28, 0.018, 0.2, 0.006, 2), std('#ffffff', 0.6, { map: woodTexture([28, 35, 50], 72, 256, 30) }), 0, 0.009, 0));
+    for (let i = 0; i < 3; i++) { const c = mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.035, 3), food(['#f2d27a', '#efe6c8', '#e8b85a'][i]), -0.07 + i * 0.07, 0.036, (i % 2) * 0.04 - 0.02); c.rotation.y = R() * 3; g.add(c); }
+    for (let i = 0; i < 9; i++) g.add(mesh(new THREE.SphereGeometry(0.011, 8, 6), food('#6a3a5a', 0.3), 0.08 + (R() - 0.5) * 0.06, 0.03, 0.05 + (R() - 0.5) * 0.05));
+  } else if (kind === 'chips') {
+    g.add(bowl('#e0d6c4', 0.09, 0.06));
+    for (let i = 0; i < 22; i++) { const c = mesh(new THREE.CircleGeometry(0.014, 8), food('#e8c070', 0.6), (R() - 0.5) * 0.1, 0.05 + R() * 0.02, (R() - 0.5) * 0.1); c.rotation.set(R() * 3, R() * 3, 0); g.add(c); }
+  }
+  shade(g); g.add(contact(0.32, 0.26, 0.4, 0.001));
+  return g;
+}
+export function pizzaOpen(slicesLeft = 5) {
+  const g = G();
+  const m = std('#a8865c', 0.9, { bumpMap: linenBump(90), bumpScale: 0.2 });
+  g.add(mesh(rbox(0.33, 0.04, 0.33, 0.005), m, 0, 0.02, 0));
+  const lid = mesh(new THREE.BoxGeometry(0.33, 0.004, 0.33), m, 0, 0.04, -0.165); lid.geometry.translate(0, 0, 0.165); lid.rotation.x = -0.55; g.add(lid);
+  // the pizza, some slices already gone
+  const ang = (slicesLeft / 8) * Math.PI * 2;
+  g.add(mesh(new THREE.CylinderGeometry(0.145, 0.145, 0.012, 40, 1, false, 0.4, ang), food('#d8a050', 0.8), 0, 0.046, 0));
+  g.add(mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.004, 40, 1, false, 0.4, ang), food('#c0442a', 0.5), 0, 0.054, 0));
+  const R = rng(4);
+  for (let i = 0; i < 22; i++) { const a = 0.4 + R() * ang, rr = 0.03 + R() * 0.09; g.add(mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.004, 10), food(R() < 0.5 ? '#f2e2b0' : '#5a2a1a', 0.6), Math.sin(a) * rr, 0.058, Math.cos(a) * rr)); }
+  shade(g); g.add(contact(0.42, 0.42, 0.4, 0.001));
+  return g;
+}
+export function pizzaClosed() {
+  const g = G(); const m = std('#a8865c', 0.9, { bumpMap: linenBump(91), bumpScale: 0.2 });
+  g.add(mesh(rbox(0.33, 0.045, 0.33, 0.005), m, 0, 0.0225, 0)); shade(g); g.add(contact(0.42, 0.42, 0.4, 0.001)); return g;
+}
+export function noodleBox(seed = 1) {
+  const g = G();
+  const geo = new THREE.CylinderGeometry(0.055, 0.04, 0.1, 4, 1, false, Math.PI / 4); geo.translate(0, 0.05, 0);
+  g.add(mesh(geo, std('#f2eee6', 0.8)));
+  const st = mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.22, 5), std('#c9a46a', 0.6), 0.01, 0.13, 0); st.rotation.z = 0.25 + seed * 0.1; g.add(st);
+  const st2 = st.clone(); st2.position.x = 0.02; st2.rotation.z = 0.3 + seed * 0.1; g.add(st2);
+  shade(g); g.add(contact(0.13, 0.13, 0.4, 0.001)); return g;
+}
+export function waterGlass(level = 0.65, tint = null) {
+  const g = G();
+  g.add(mesh(lathe([[0, 0], [0.032, 0], [0.036, 0.11], [0.034, 0.11], [0.03, 0.006], [0, 0.006]], 28), glassMat()));
+  if (level > 0) g.add(mesh(new THREE.CylinderGeometry(0.031, 0.029, 0.1 * level, 24), new THREE.MeshPhysicalMaterial({ color: C(tint || '#dfeef0'), roughness: 0.05, transparent: true, opacity: tint ? 0.85 : 0.25, depthWrite: false }), 0, 0.006 + 0.05 * level, 0));
+  g.add(contact(0.1, 0.1, 0.3, 0.001)); return g;
+}
+export function carafe() {
+  const g = G();
+  g.add(mesh(lathe([[0, 0], [0.055, 0], [0.06, 0.08], [0.045, 0.16], [0.03, 0.22], [0.033, 0.24], [0, 0.24]], 32), glassMat()));
+  g.add(mesh(new THREE.CylinderGeometry(0.054, 0.056, 0.11, 24), new THREE.MeshPhysicalMaterial({ color: C('#dfeef0'), roughness: 0.05, transparent: true, opacity: 0.22, depthWrite: false }), 0, 0.06, 0));
+  g.add(contact(0.16, 0.16, 0.35, 0.001)); return g;
+}
+export function beer(full = true) {
+  const g = G();
+  g.add(mesh(lathe([[0, 0], [0.03, 0], [0.031, 0.13], [0.014, 0.18], [0.012, 0.22], [0, 0.22]], 24), new THREE.MeshPhysicalMaterial({ color: C('#5a2e10'), roughness: 0.1, clearcoat: 1, transparent: true, opacity: 0.92 })));
+  g.add(mesh(new THREE.CylinderGeometry(0.0315, 0.0315, 0.06, 24, 1, true), std(full ? '#e9dcc2' : '#d9cbb0', 0.8), 0, 0.07, 0));
+  shade(g); g.add(contact(0.1, 0.1, 0.45, 0.001)); return g;
+}
+export function sodaCan(color = '#c4302a') {
+  const g = G();
+  g.add(mesh(new THREE.CylinderGeometry(0.033, 0.033, 0.12, 24), std(color, 0.35, { metalness: 0.5 }), 0, 0.06, 0));
+  g.add(mesh(new THREE.CylinderGeometry(0.03, 0.033, 0.006, 24), std('#cfcfcf', 0.3, { metalness: 0.9 }), 0, 0.123, 0));
+  shade(g); g.add(contact(0.1, 0.1, 0.4, 0.001)); return g;
+}
+export function milkCarton() {
+  const g = G();
+  g.add(mesh(rbox(0.07, 0.17, 0.07, 0.004), std('#f2f0ea', 0.6), 0, 0.085, 0));
+  const roof = mesh(new THREE.CylinderGeometry(0.0, 0.05, 0.04, 4, 1), std('#f2f0ea', 0.6), 0, 0.19, 0); roof.rotation.y = Math.PI / 4; roof.scale.z = 0.3; g.add(roof);
+  g.add(mesh(new THREE.PlaneGeometry(0.06, 0.07), std('#3f8fd0', 0.6), 0, 0.09, 0.0352));
+  shade(g); g.add(contact(0.11, 0.11, 0.45, 0.001)); return g;
+}
+export function cupSaucer(color = '#f1ece2', drink = '#5a3220') {
+  const g = G();
+  g.add(mesh(lathe([[0, 0], [0.06, 0], [0.065, 0.008], [0.06, 0.01], [0, 0.01]], 32), glazed(color)));
+  g.add(mesh(lathe([[0, 0.01], [0.03, 0.01], [0.04, 0.065], [0.037, 0.065], [0.028, 0.016], [0, 0.016]], 28), glazed(color)));
+  g.add(mesh(new THREE.CircleGeometry(0.036, 20).rotateX(-Math.PI / 2), std(drink, 0.15), 0, 0.055, 0));
+  const h = mesh(new THREE.TorusGeometry(0.015, 0.004, 6, 12, Math.PI * 1.3), glazed(color), 0.042, 0.042, 0); h.rotation.z = -1.9; g.add(h);
+  shade(g); g.add(contact(0.15, 0.15, 0.35, 0.001)); return g;
+}
+export function teapot(color = '#4f6a6a') {
+  const g = G(); const m = glazed(color);
+  g.add(mesh(lathe([[0, 0], [0.06, 0], [0.085, 0.05], [0.08, 0.1], [0.05, 0.13], [0.02, 0.135], [0, 0.135]], 32), m));
+  g.add(mesh(new THREE.SphereGeometry(0.013, 10, 8), m, 0, 0.145, 0));
+  g.add(mesh(tube([[0.075, 0.05, 0], [0.12, 0.09, 0], [0.14, 0.12, 0]], 0.009, 8, 6), m));
+  const h = mesh(new THREE.TorusGeometry(0.035, 0.007, 6, 14, Math.PI), m, -0.085, 0.075, 0); h.rotation.z = Math.PI / 2; g.add(h);
+  shade(g); g.add(contact(0.26, 0.2, 0.45, 0.001)); return g;
+}
+export function napkinFolded(color = '#e9e2d4') { const g = G(); g.add(mesh(rbox(0.1, 0.012, 0.1, 0.005, 2), fabric(color), 0, 0.006, 0)); shade(g); return g; }
+export function cards(seed = 2) {
+  const g = G(); const R = rng(seed);
+  const back = std('#8a2a2a', 0.6), face = std('#f2eee6', 0.6);
+  for (let i = 0; i < 9; i++) { const c = mesh(rbox(0.06, 0.002, 0.09, 0.003, 1), R() < 0.6 ? face : back, (R() - 0.5) * 0.24, 0.001 + i * 0.0021, (R() - 0.5) * 0.16); c.rotation.y = R() * 3; c.receiveShadow = true; g.add(c); }
+  g.add(mesh(rbox(0.065, 0.025, 0.095, 0.004, 1), back, 0.16, 0.0125, 0.1));
+  shade(g); return g;
+}
+export function boardGame(seed = 3) {
+  const [c, x] = canvas(256);
+  x.fillStyle = '#e9dcc0'; x.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { if ((i + j) % 2) { x.fillStyle = '#5a3a2a'; x.fillRect(16 + i * 28, 16 + j * 28, 28, 28); } }
+  const g = G();
+  g.add(mesh(rbox(0.34, 0.016, 0.34, 0.004, 2), std('#ffffff', 0.6, { map: toTex(c) }), 0, 0.008, 0));
+  const R = rng(seed);
+  for (let i = 0; i < 14; i++) g.add(mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.008, 16), std(i % 2 ? '#1f1f1f' : '#f2eee6', 0.35), (Math.floor(R() * 8) - 3.5) * 0.0375, 0.02, (Math.floor(R() * 8) - 3.5) * 0.0375));
+  shade(g); g.add(contact(0.42, 0.42, 0.4, 0.001));
+  return g;
+}
+export function pregnancyTest() {
+  const g = G();
+  const tissue = mesh(new THREE.PlaneGeometry(0.16, 0.12, 4, 3).rotateX(-Math.PI / 2), fabric('#f6f4ef'), 0, 0.002, 0); tissue.receiveShadow = true; g.add(tissue);
+  const t = mesh(rbox(0.13, 0.012, 0.024, 0.005, 2), std('#f8f8f6', 0.4), 0, 0.009, 0); t.rotation.y = 0.25; g.add(t);
+  const win = mesh(new THREE.PlaneGeometry(0.022, 0.009).rotateX(-Math.PI / 2), std('#e0a0b0', 0.5), 0.0, 0.0152, 0); win.rotation.y = 0.25; g.add(win);
+  shade(g); return g;
+}
+export function babyThings() {
+  const g = G();
+  g.add(foldedCloth('#cfe0e8', 0.16, 0.13, 0.04, false, 21));
+  const f2 = foldedCloth('#f2d8c8', 0.14, 0.12, 0.035, false, 22); f2.position.y = 0.042; f2.rotation.y = 0.3; g.add(f2);
+  for (const s of [-1, 1]) { const b = mesh(new THREE.SphereGeometry(0.022, 12, 10), fabric('#f4efe6', { map: knitTexture('#f4efe6', 23) }), 0.14 + s * 0.026, 0.016, 0.03); b.scale.set(0.8, 0.7, 1.3); b.castShadow = true; g.add(b); }
+  return g;
+}
+export function kidCup() { const g = G(); g.add(mesh(lathe([[0, 0], [0.028, 0], [0.032, 0.07], [0, 0.07]], 20), std('#5bb35a', 0.4))); shade(g); g.add(contact(0.08, 0.08, 0.3, 0.001)); return g; }
+export function phone() { const g = G(); g.add(mesh(rbox(0.072, 0.008, 0.148, 0.008, 2), std('#1d1d20', 0.25, { metalness: 0.3 }), 0, 0.004, 0)); shade(g); return g; }
+export function speaker() { const g = G(); g.add(mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.12, 28), fabric('#6a6a6e', { bumpMap: linenBump(95), bumpScale: 0.6 }), 0, 0.06, 0)); shade(g); return g; }
+export function sailboatModel() {
+  const g = G(); const w = std('#8a5a3a', 0.5);
+  const hull = mesh(new THREE.CapsuleGeometry(0.018, 0.13, 4, 10), w, 0, 0.045, 0); hull.rotation.z = Math.PI / 2; hull.scale.set(1, 1, 0.8); g.add(hull);
+  g.add(mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.17, 6), w, 0, 0.135, 0));
+  const sail = mesh(new THREE.ShapeGeometry(new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(0.07, 0), new THREE.Vector2(0, 0.14)])), std('#efe6d6', 0.8, { side: THREE.DoubleSide }), 0.004, 0.07, 0); g.add(sail);
+  g.add(mesh(rbox(0.06, 0.012, 0.03, 0.004, 1), w, 0, 0.006, 0));
+  shade(g); return g;
+}
+export function carvedBird() {
+  const g = G(); const w = std('#6a4a2e', 0.45);
+  const b = mesh(new THREE.SphereGeometry(0.03, 16, 12), w, 0, 0.03, 0); b.scale.set(1.4, 0.9, 0.9); g.add(b);
+  g.add(mesh(new THREE.SphereGeometry(0.016, 12, 10), w, 0.035, 0.05, 0));
+  const tail = mesh(new THREE.ConeGeometry(0.012, 0.04, 8), w, -0.045, 0.04, 0); tail.rotation.z = 1.9; g.add(tail);
+  shade(g); return g;
+}
+export function wovenArt(seed = 5) {
+  const [c, x] = canvas(256, 320); const R = rng(seed);
+  x.fillStyle = '#d9c4a0'; x.fillRect(0, 0, 256, 320);
+  const cols = ['#a8452f', '#2f4858', '#c99a42', '#5d6f5a', '#efe6d6'];
+  for (let y = 0; y < 320; y += 10 + R() * 18) { x.fillStyle = cols[Math.floor(R() * cols.length)]; x.fillRect(0, y, 256, 6 + R() * 10); for (let k = 0; k < 6; k++) { x.fillStyle = cols[Math.floor(R() * cols.length)]; x.beginPath(); x.moveTo(R() * 256, y); x.lineTo(R() * 256, y + 14); x.lineTo(R() * 256, y + 7); x.fill(); } }
+  for (let i = 0; i < 4000; i++) { x.fillStyle = `rgba(0,0,0,${R() * 0.12})`; x.fillRect(R() * 256, R() * 320, 2, 1); }
+  return toTex(c);
 }

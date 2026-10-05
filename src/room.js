@@ -428,6 +428,7 @@ export function buildRoom(scene, ctx) {
   bounce2.position.set(0.3, 0.45, 1.0); room.add(bounce2);
   const hemi = new THREE.HemisphereLight(C('#7a6c8c'), C('#4a2c1c'), 0.3);
   room.add(hemi);
+  ctx.lights = { sky, sky2, bounce, bounce2, hemi };
 
   // ------------------------------------------------------------ sun shafts (ray-marched inside a sheared box)
   const beamU = {
@@ -486,18 +487,11 @@ export function buildRoom(scene, ctx) {
   };
 
   ctx.duvetMat = duvetMat;
+  ctx.setBeam = setBeam; ctx.beamU = beamU; ctx.bulbBase = ctx.bulbMat.color.clone();
   return {
     room, curtains, sun, floorMat, beamU,
     update(age, t) {
-      updateCurtains(t);
-      // sun drifts with the seasons — shadows travel as years pass
-      const season = Math.sin((age - 25) * Math.PI * 2 - 0.6);
-      const az = THREE.MathUtils.degToRad(17 + season * 4.5 + (age - 25) * 0.1);
-      const el = THREE.MathUtils.degToRad(27 + season * 2.5);
-      const dir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el));
-      sun.position.copy(sun.target.position).addScaledVector(dir, 20);
-      ctx.season = season;
-      setBeam(dir.clone().negate());
+      updateCurtains(t); // light is set by daylight.js
     },
   };
 }

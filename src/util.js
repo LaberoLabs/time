@@ -84,6 +84,7 @@ export function subtract(A, holes, hf = 0.05) {
     const next = [];
     for (const s of cur) {
       const [a, b, fi, fo] = s;
+      if (h0 >= b && h0 < b + fo) { next.push([a, b, fi, Math.max(0.02, h0 - b)]); continue; } // finish fading before the hole
       if (h1 <= a || h0 >= b) { next.push(s); continue; }
       if (h0 > a) next.push([a, h0, fi, hf]);
       if (h1 < b) next.push([h1, b, hf, fo]);

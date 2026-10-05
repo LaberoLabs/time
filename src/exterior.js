@@ -27,6 +27,7 @@ export function buildExterior(scene, sunVisDir) {
     glowCol: { value: lin('#ff9a4a') },
     cloudLit: { value: lin('#ffa070') },
     cloudDark: { value: lin('#9a6680') },
+    uDisc: { value: 1 },
   };
   const sky = new THREE.Mesh(
     new THREE.SphereGeometry(4000, 64, 32),
@@ -34,7 +35,7 @@ export function buildExterior(scene, sunVisDir) {
       uniforms: skyU, side: THREE.BackSide, depthWrite: false,
       vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
       fragmentShader: NOISE + /* glsl */`
-        uniform vec3 sunDir, zenith, mid, horizon, sunCol, glowCol, cloudLit, cloudDark; uniform float uCloud, uTime;
+        uniform vec3 sunDir, zenith, mid, horizon, sunCol, glowCol, cloudLit, cloudDark; uniform float uCloud, uTime, uDisc;
         varying vec3 vDir;
         void main(){
           vec3 d = normalize(vDir);
@@ -42,7 +43,7 @@ export function buildExterior(scene, sunVisDir) {
           float sd = max(dot(d, normalize(sunDir)), 0.);
           vec3 col = mix(horizon, mid, smoothstep(0.0, 0.07, e));
           col = mix(col, zenith, smoothstep(0.06, 0.26, e));
-          col += glowCol * pow(sd, 10.) * 0.35 + glowCol * pow(sd, 120.) * 0.7 + sunCol * pow(sd, 3000.) * 2.;
+          col += glowCol * pow(sd, 10.) * 0.35 + glowCol * pow(sd, 120.) * 0.7 + sunCol * pow(sd, 3000.) * 2. * uDisc;
           // clouds: long horizontal streaks
           float dy = max(d.y + 0.08, 0.03);
           vec2 cp = vec2(d.x / dy, 1. / dy);
@@ -57,7 +58,7 @@ export function buildExterior(scene, sunVisDir) {
           col *= 0.72;
           // sun disc
           float disc = smoothstep(0.99955, 0.9997, sd);
-          col += sunCol * disc * 9.;
+          col += sunCol * disc * 9. * uDisc;
           // below horizon (hidden by water, but keep tidy)
           col = mix(col, horizon * 0.8, smoothstep(0.0, -0.05, e));
           gl_FragColor = vec4(col, 1.);
@@ -135,6 +136,18 @@ export function buildExterior(scene, sunVisDir) {
     out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     out.setIndex(idx); return out;
   };
+  // lit windows for evenings and nights
+  {
+    const pts = [], rr = rng(78);
+    for (const g of geos) {
+      g.computeBoundingBox(); const bb = g.boundingBox;
+      const n = 1 + Math.floor(rr() * 4);
+      for (let k = 0; k < n; k++) pts.push(bb.min.x + rr() * (bb.max.x - bb.min.x), bb.min.y + 4 + rr() * Math.max(1, bb.max.y - bb.min.y - 6), bb.max.z + 0.5);
+    }
+    const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    var cityLights = new THREE.Points(pg, new THREE.PointsMaterial({ color: new THREE.Color('#ffcf8a').multiplyScalar(2.5), size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+    cityLights.visible = false; ext.add(cityLights);
+  }
   ext.add(new THREE.Mesh(merge(geos), cityMat));
   ext.add(new THREE.Mesh(merge(geos2), cityMat2));
 
@@ -181,7 +194,7 @@ export function buildExterior(scene, sunVisDir) {
   }
 
   return {
-    ext, skyU, waterU,
+    ext, skyU, waterU, cityMat, cityMat2, hillMat, cityLights,
     update(age, time, camPos) {
       skyU.uCloud.value = age;
       skyU.uTime.value = time;

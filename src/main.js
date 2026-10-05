@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { buildExterior } from './exterior.js';
 import { buildRoom } from './room.js';
-import { buildLife, BEATS } from './life.js';
+import { buildLife, BEATS, todLayers } from './life.js';
+import { resolve, applyDaylight } from './daylight.js';
 import { buildPost } from './post.js';
 import { clamp } from './util.js';
 import { encAge } from './tex.js';
@@ -135,7 +136,7 @@ function step(dt, t) {
   ctx.ageU.value = encAge(age) / 255;
   room.update(age, t);
   life.update(age, t, vel);
-  renderer.toneMappingExposure = 1.0 - 0.1 * (ctx.dim || 0) - 0.06 * (ctx.off || 0);
+  applyDaylight(resolve(todLayers(age)), ctx, exterior, renderer, scene);
   exterior.update(age, t, camera.position);
 
 
@@ -203,4 +204,27 @@ window.__time.scrub = async (a, b, secs, name, at = 0.6) => {
     }
   }
   return { age, smear: post.smear.amount };
+};
+// collision audit across the whole life (dev)
+window.__time.audit = (step = 0.1, fine = 0.02) => {
+  const L = life.life;
+  if (!L.items[0].localBox) L.prepareAudit();
+  const B = (x0, y0, z0, x1, y1, z1) => new THREE.Box3(new THREE.Vector3(x0, y0, z0), new THREE.Vector3(x1, y1, z1));
+  const onBed = (it) => it.onBed;
+  const statics = [
+    ['table top', B(0.45, 0.71, 1.7, 2.15, 0.758, 2.6)],
+    ['bed', B(-3.62, 0, 0.04, -2.02, 0.55, 2.2), onBed],
+    ['nightstand', B(-1.93, 0, 0.02, -1.51, 0.548, 0.42)],
+    ['plant pot', B(-1.46, 0, 0.28, -1.02, 0.4, 0.72)],
+    ['back wall', B(-5, 0, -0.6, 5, 3, 0)],
+    ['floor', B(-5, -1, -0.5, 5, 0, 8)],
+    ['shelf side L', B(2.25, 0, 0, 2.28, 2.32, 0.34)],
+  ];
+  const ages = [];
+  for (let a = 25; a <= 90; a += step) ages.push(a);
+  for (const [a0, a1] of BEATS) for (let a = a0 - 0.1; a <= a1 + 0.1; a += fine) ages.push(a);
+  ages.sort((x, y) => x - y);
+  const res = L.audit(ages, statics);
+  window.__time.setAge(age);
+  return res;
 };
