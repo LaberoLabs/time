@@ -17,7 +17,16 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
 // the grown child, coming home: short stays, more often after 77
 const LOSS = 73.5; // the last evening with two glasses
 const VISITS = [[56.2, 56.5], [60.1, 60.4], [64.3, 64.6], [66.0, 66.35], [67.2, 67.55], [68.5, 68.85], [70.1, 70.4], [73.6, 73.9], [77.0, 77.6], [78.4, 78.8], [80.4, 80.8], [83.1, 83.5], [85.6, 85.9], [88.2, 88.5]].map(([a, b]) => [a, b, 0.1, 0.1]);
-const VISITS_SHOES = [[36.1, 52.4, 0.4, 0.4], ...VISITS];
+const VISITS_SHOES = [[36.1, 52.4, 0.4, 0.4], ...VISITS.filter(([a]) => a < LOSS)];
+const END = 89.6; // the last things put down are never picked up again
+// evenings with friends, once the child has left: [start]; dinner lasts 0.2y, the late-evening traces 0.1y
+const DINNERS = [53.7, 54.6, 57.0, 58.2, 59.3, 60.7];
+const DIN = DINNERS.map((d) => [d, d + 0.2, 0.04, 0.03]);
+const AFTER = DINNERS.map((d) => [d + 0.21, d + 0.31, 0.03, 0.04]);
+const BOTH = DINNERS.map((d) => [d, d + 0.31, 0.04, 0.04]);
+// cut windows out of a presence span (things cleared off the table for dinners)
+const minus = (a, b, holes) => { const out = []; let s = a; for (const [h0, h1] of holes) { if (h1 < s || h0 > b) continue; out.push([s, h0, 0.4, 0.03]); s = h1; } out.push([s, b, 0.04, 0.4]); return out; };
+const HOLES = DINNERS.map((d) => [d - 0.03, d + 0.35]);
 
 export function buildLife(scene, ctx) {
   const life = new Life(scene);
@@ -50,16 +59,18 @@ export function buildLife(scene, ctx) {
   });
 
   // ================================================================ coats (draped over chair backs) and bags
-  const coat1 = add(O.chairCoat('#8a5a3a', 1, 0.44, 0.4), 0, 0.965, -0.215, { follow: chairA, out: 59.6, fo: 0.3, settle: [0, 0.06, 0] });
-  add(O.chairCoat('#4f5a66', 6, 0.44, 0.42), 0, 0.965, -0.215, { follow: chairA, in: 60.0, fi: 0.3, settle: [0, 0.06, 0] }); // the coat, replaced
-  const scarf = add(O.chairCoat('#b5523b', 4, 0.2, 0.42, 0.012, 0.11), 0.04, 0.985, -0.215, { follow: chairA, in: 30.6, settle: [0, 0.04, 0] });
-  const coat2 = add(O.chairCoat('#b7a48a', 2, 0.44, 0.34), 0, 0.93, -0.19, { follow: chairB, in: 28.3, out: 80.0, fo: 0.5, settle: [0, 0.06, 0] });
-  const kidCoat = add(O.chairCoat('#d9a22a', 3, 0.34, 0.36), 0, 0.96, -0.2, { follow: kidChair, in: 38.8, out: 41.4, settle: [0, 0.05, 0] });
+  const coat1 = add(O.garment('#8a5a3a', { seed: 1 }), 0, 0.95, -0.21, { follow: chairA, out: 59.6, fo: 0.3, settle: [0, 0.05, 0] });
+  add(O.garment('#4f5a66', { seed: 6, back: 0.42 }), 0, 0.95, -0.21, { follow: chairA, in: 60.0, fi: 0.3, out: END, fo: 0.25, settle: [0, 0.05, 0] }); // the coat, replaced
+  const scarf = add(O.garment('#b5523b', { w: 0.17, r: 0.092, front: 0.2, back: 0.3, knit: true, sleeves: false, bulge: 0.004, seed: 4 }), 0.05, 0.95, -0.21, { follow: chairA, in: 30.6, out: END, fo: 0.25, settle: [0, 0.04, 0] });
+  const coat2 = add(O.garment('#b7a48a', { seed: 2, knit: true, back: 0.34, front: 0.12, lean: 0, r: 0.05 }), 0, 0.935, -0.185, { follow: chairB, in: 28.3, out: LOSS + 3.0, fo: 0.3, settle: [0, 0.05, 0] });
+  // afterwards it is folded and left on their seat for a while
+  add(O.foldedCloth('#b7a48a', 0.3, 0.24, 0.06, true, 9), 0, 0.48, 0.02, { follow: chairB, in: LOSS + 3.25, out: 80.0, fi: 0.25, fo: 0.4, settle: [0, 0.04, 0] });
+  const kidCoat = add(O.garment('#d9a22a', { seed: 3, w: 0.32, back: 0.3, front: 0.11, r: 0.055, lean: 0.38 }), 0, 0.925, -0.175, { follow: kidChair, in: 38.8, out: 41.4, settle: [0, 0.05, 0] });
   add(O.backpack('#c4532e'), 0.42, 0.42, 0.05, { follow: kidChair, in: 40.6, out: 47.6, settle: [0, 0.05, 0] });
 
   // ================================================================ table top
   const glass1 = add(O.wineGlass(0.6), T.x + 0.15, ty, T.z - 0.28, {
-    spans: [[-Infinity, 32.35, 0.3, 0.3], [41.8, Infinity, 0.4]],
+    spans: [[-Infinity, 32.35, 0.3, 0.3], [41.8, END, 0.4, 0.25]],
     path: [[25, [T.x + 0.15, ty, T.z - 0.3]], [27.5, [T.x + 0.08, ty, T.z - 0.3]], [41.7, [T.x + 0.06, ty, T.z - 0.32]]],
     wob: { p: 0.02, r: 0, f: 2.2, seed: 3 },
     update(age, p, o) { const w = o.userData.wine; if (w) { w.visible = age < 79.3; w.material.opacity *= 1 - smooth(79.0, 79.3, age); } }, // no more wine
@@ -83,7 +94,7 @@ export function buildLife(scene, ctx) {
       cnd.userData.wax.scale.y = h; cnd.userData.wax.position.y = 0.08 + h / 2;
       cnd.userData.wax.material.color.set('#efe6d6').lerp(C('#d9c9a8'), burnt);
       cnd.userData.flame.position.y = 0.08 + h + 0.012;
-      const out = smooth(89.72, 89.97, age);
+      const out = smooth(89.9, 89.985, age); // after the lamps
       cnd.userData.flame.material.opacity = p * (1 - out);
       cnd.userData.flame.visible = out < 0.999;
       cnd.userData.light.intensity = 0.25 * p * (1 - out);
@@ -109,24 +120,24 @@ export function buildLife(scene, ctx) {
 
   // the mug: tea instead of wine, then it simply stays for good
   add(O.mug('#e3dccf'), T.x - 0.46, ty, T.z - 0.3, {
-    in: 32.3,
+    in: 32.3, out: END, fo: 0.25,
     path: [[32, [T.x - 0.46, ty, T.z - 0.3]], [35, [T.x - 0.4, ty, T.z - 0.28], 1.2], [38, [T.x - 0.48, ty, T.z - 0.26], 2.1], [42, [T.x - 0.44, ty, T.z - 0.3], 0.4]],
     wob: { p: 0.02, r: 0.6, f: 2.4, seed: 31 },
   });
-  add(O.mug('#3f5a6a'), T.x - 0.72, ty, T.z + 0.04, { in: 37.6, out: LOSS, fo: 0.25, wob: { p: 0.02, r: 0.8, f: 2.1, seed: 33 } });
+  add(O.mug('#3f5a6a'), T.x - 0.72, ty, T.z + 0.04, { spans: minus(37.6, LOSS, HOLES), wob: { p: 0.02, r: 0.8, f: 2.1, seed: 33 } });
 
   // the child at the table
   add(O.babyBottle(), T.x - 0.32, ty, T.z + 0.3, { in: 33.7, out: 35.3, wob: { p: 0.04, r: 0, f: 2.5, seed: 41 } });
   add(O.sippyCup(), T.x - 0.1, ty, T.z + 0.3, { in: 35.7, out: 39.2, wob: { p: 0.02, r: 0.5, f: 2.6, seed: 42 } });
   add(O.paperSheets([childDrawing('scribble', 71), childDrawing('house', 72), childDrawing('rainbow', 73)]), T.x - 0.5, ty, T.z + 0.22, { in: 36.2, out: 40.5, settle: [0, 0.01, 0] });
-  add(O.fruitBowl(), T.x + 0.22, ty, T.z + 0.12, { in: 36.6, out: LOSS + 0.8, fo: 0.4 });
+  add(O.fruitBowl(), T.x + 0.22, ty, T.z + 0.12, { spans: minus(36.6, LOSS + 0.8, HOLES) });
   add(O.tumbler('#f2a33a'), T.x - 0.08, ty, T.z + 0.32, { in: 40.1, out: 45.8, wob: { p: 0.015, r: 0, f: 2.2, seed: 43 } });
   add(O.bookStack(['#e2523a', '#3f8fd0'], 9), T.x - 0.42, ty, T.z + 0.22, { in: 40.6, out: 45.8, ry: -0.2 });
   add(O.pencilCase(), T.x - 0.28, ty, T.z + 0.4, { in: 40.8, out: 52.4, ry: 0 });
 
   // ================================================================ bed
   add(O.throwBlanket('#6a6560', 2, 0.42, 0.34, 0.07), -2.42, 0.64, 1.0, {
-    ry: 0.4, settle: [0, 0.05, 0],
+    ry: 0.4, settle: [0, 0.05, 0], out: END, fo: 0.25,
     path: [[25, [-2.42, 0.64, 1.0], 0.4], [29, [-3.3, 0.64, 1.5], 1.1]],
   });
   add(O.throwBlanket('#8a3f2a', 5, 0.9, 0.6, 0.07), -2.42, 0.645, 1.3, { in: 29.0, fi: 0.5, ry: 0.32, settle: [0, 0.08, 0],
@@ -140,8 +151,8 @@ export function buildLife(scene, ctx) {
   add(O.babyMonitor(), -1.88, 0.55, 0.36, { in: 33.8, out: 37.4, ry: 0.3 });
 
   // ================================================================ floor: shoes, the cradle, toys
-  add(O.shoes('sneaker', '#efeae2'), -1.85, 0, 0.68, { ry: -0.2, wob: { p: 0.012, r: 0.15, f: 1.3, seed: 61 } });
-  add(O.shoes('boot', '#4a2e20'), -1.61, 0, 0.72, { in: 27.9, out: 77.0, fo: 0.5, ry: 0.06, wob: { p: 0.01, r: 0.1, f: 1.2, seed: 62 } });
+  add(O.shoes('sneaker', '#efeae2'), -1.85, 0, 0.68, { out: END, fo: 0.25, ry: -0.2, wob: { p: 0.012, r: 0.15, f: 1.3, seed: 61 } });
+  add(O.shoes('boot', '#4a2e20'), -1.61, 0, 0.72, { in: 27.9, out: LOSS + 0.6, fo: 0.3, ry: 0.06, wob: { p: 0.01, r: 0.1, f: 1.2, seed: 62 } });
   add(O.shoes('sneaker', '#c9442e'), -1.73, 0, 1.1, { spans: VISITS_SHOES, ry: -0.35, scale: [[34.9, 0.42], [37, 0.55], [40, 0.68], [45, 0.86], [49, 1.02], [90, 1.04]], wob: { p: 0.012, r: 0.15, f: 1.4, seed: 63 } });
 
   add(O.mosesBasket(), -1.72, 0, 1.5, { in: 33.75, out: 35.6, fi: 0.5, fo: 0.5, ry: 0.08, settle: [0, 0, 0.2] });
@@ -247,7 +258,7 @@ export function buildLife(scene, ctx) {
   const chairC = add(O.chairSpindle(std('#8fa3a8', 0.6)), T.x - 0.28, 0, T.z + 0.8, {
     in: 48.7, out: 52.6, fi: 0.4, ry: Math.PI + 0.1, settle: [0, 0, 0.25], wob: { p: 0.07, r: 0.2, f: 1.4, seed: 71 },
   });
-  add(O.chairCoat('#3b4250', 7, 0.42, 0.4), 0, 0.965, -0.215, { follow: chairC, in: 48.6, out: 52.5, settle: [0, 0.05, 0] });
+  add(O.garment('#8d8470', { seed: 7, back: 0.36 }), 0, 0.95, -0.21, { follow: chairC, in: 48.9, out: 52.5, settle: [0, 0.05, 0] });
   add(O.laptop(), T.x - 0.3, ty, T.z + 0.22, { in: 46.2, out: 52.4, ry: 0.15, wob: { p: 0.015, r: 0.1, f: 1.6, seed: 72 } });
   add(O.headphones(), T.x - 0.66, ty, T.z + 0.3, { in: 47.3, out: 52.3, ry: 0.5, wob: { p: 0.015, r: 0.3, f: 2.0, seed: 73 } });
   // a guitar, left behind when they go
@@ -268,16 +279,17 @@ export function buildLife(scene, ctx) {
   }
 
   // the grown child, coming home: their glass, their mug
-  add(O.wineGlass(0.4), T.x - 0.45, ty, T.z + 0.3, { spans: VISITS });
+  add(O.wineGlass(0.4), T.x - 0.45, ty, T.z + 0.3, { spans: VISITS.filter(([a]) => a < LOSS) });
   add(O.mug('#c9a14a'), T.x - 0.2, ty, T.z + 0.3, { spans: VISITS.filter(([a]) => a > 72) });
 
   // quieter years: a puzzle, a tablet, the paper
   add(O.jigsaw(), T.x - 0.3, ty, T.z + 0.24, { in: 61.4, out: 63.9, fi: 0.3, fo: 0.3, ry: 0.0, settle: [0, 0.01, 0] });
-  add(O.tablet(), T.x + 0.35, ty, T.z - 0.28, { in: 62.6, ry: 0.0, wob: { p: 0.01, r: 0.1, f: 1.8, seed: 81 } });
+  add(O.tablet(), T.x + 0.35, ty, T.z - 0.28, { in: 62.6, out: END, fo: 0.25, ry: 0.0, wob: { p: 0.01, r: 0.1, f: 1.8, seed: 81 } });
   add(O.newspaper(), T.x - 0.16, ty, T.z - 0.12, { in: 68.4, out: 81.0, ry: 0.0, wob: { p: 0.01, r: 0.08, f: 2.3, seed: 82 } });
-  add(O.plate('#efe9df', 0.12), T.x - 0.16, ty, T.z - 0.15, { in: 81.4, wob: { p: 0.01, r: 0.3, f: 2, seed: 83 } });
+  add(O.plate('#efe9df', 0.12), T.x - 0.16, ty, T.z - 0.18, { in: 81.4, out: END, fo: 0.25, wob: { p: 0.01, r: 0.3, f: 2, seed: 83 } });
+  add(O.openBook('#3d4a3a'), T.x - 0.15, ty, T.z + 0.1, { in: 84.4, out: END, fo: 0.25, ry: 0.08, settle: [0, 0.01, 0] });
   // a cutting from the big plant, in a jar
-  add(O.cuttingJar(), T.x + 0.3, ty, T.z + 0.1, { in: 85.4, fi: 0.4 }); // where the fruit bowl was
+  add(O.cuttingJar(), T.x + 0.3, ty, T.z + 0.1, { in: 85.4, fi: 0.4, out: END, fo: 0.25 }); // where the fruit bowl was
   // a photograph by the bed
   const np = add(O.frame(photoTexture('sea', 1), 0.07, 0.05, { border: 0.012, mat: 0.02, color: '#c9b08a' }), -1.87, 0.607, 0.36, { in: 80.2, ry: 0.2, settle: [0, 0.03, 0] });
   np.rotation.x = -0.12;
@@ -303,6 +315,46 @@ export function buildLife(scene, ctx) {
   add(rug2, -0.72, 0, 2.62, { in: 60.6, fi: 0.3, out: 83.0, fo: 0.4, ry: 0.13, settle: [0, 0, 0] });
   ctx.rugMat.transparent = true;
 
+
+  // ================================================================ life between the milestones
+  // 25: a takeaway on the table; drawing in the evenings
+  add(O.pizzaBox(), T.x + 0.2, ty, T.z + 0.15, { in: 25.4, out: 25.65, fi: 0.05, fo: 0.05, ry: 0.15 });
+  add(O.sketchbook(), T.x + 0.3, ty, T.z - 0.04, { in: 25.9, out: 27.3, ry: -0.2, wob: { p: 0.01, r: 0.15, f: 2, seed: 91 } });
+  // 29: someone moves in — boxes, briefly
+  add(O.cardboardBox(0.5, 0.36, 0.38, true), -0.35, 0, 1.55, { in: 28.85, out: 29.25, fi: 0.08, fo: 0.1, ry: -0.15, settle: [0, 0, 0] });
+  add(O.cardboardBox(0.42, 0.3, 0.32), -0.82, 0, 1.3, { in: 28.9, out: 29.3, fi: 0.08, fo: 0.1, ry: 0.25, settle: [0, 0, 0] });
+  // birthdays at the child's place, one more candle each year
+  for (let k = 0; k < 11; k++) {
+    const b = 34.7 + k;
+    add(O.cake(k + 1), T.x - 0.15, ty, T.z + 0.08, { in: b, out: b + 0.07, fi: 0.03, fo: 0.03, settle: [0, 0.01, 0] });
+  }
+  // the room is repainted once the child is older; the paint things wait on a sheet
+  add(O.paintJob(), -0.55, 0, 0.82, { in: 49.6, out: 50.25, fi: 0.08, fo: 0.08, ry: 0.1, settle: [0, 0, 0] });
+  // pale patches and tape marks where drawings hung, until the repaint (and the grandchild's, never painted over)
+  for (const [k, x, y, a, b] of taped) {
+    const until = b > 50 ? Infinity : 49.95;
+    add(O.wallTrace(0.22, 0.165), x, y, 0, { in: b + 0.3, out: until, fi: 0.2, fo: 0.08, settle: [0, 0, 0] });
+  }
+  // trips away
+  for (const tr of [55.15, 63.35, 71.5]) add(O.suitcase(), -0.72, 0, 1.3, { in: tr, out: tr + 0.25, fi: 0.04, fo: 0.04, ry: 0.35, settle: [0, 0, 0] });
+
+  // evenings with friends: two more places, an opened bottle, flowers; afterwards the plates stacked, glasses left out
+  const guestChair = add(O.chairSpindle(std('#5d5a54', 0.6)), T.x - 0.28, 0, T.z + 0.82, {
+    spans: BOTH, ry: Math.PI - 0.12, settle: [0, 0, 0.2],
+    update(age, p, o) { const late = AFTER.some(([a, b]) => age > a - 0.02 && age < b + 0.05); if (late) { o.position.z += 0.16; o.position.x -= 0.06; o.rotation.y += 0.35; } },
+  });
+  add(O.plate(), T.x - 0.15, ty, T.z - 0.22, { spans: DIN });
+  add(O.plate(), T.x - 0.66, ty, T.z + 0.06, { spans: DIN });
+  add(O.plate(), T.x - 0.25, ty, T.z + 0.24, { spans: DIN });
+  add(O.plate(), T.x + 0.68, ty, T.z + 0.18, { spans: DIN });
+  add(O.wineGlass(0.35), T.x + 0.0, ty, T.z + 0.36, { spans: BOTH });
+  add(O.wineGlass(0.25), T.x + 0.78, ty, T.z + 0.38, { spans: BOTH });
+  add(O.bottle(), T.x + 0.08, ty, T.z - 0.05, { spans: BOTH });
+  add(O.bouquet(), T.x + 0.25, ty, T.z + 0.1, { spans: DINNERS.filter((_, i) => i % 2 === 0).map((d) => [d, d + 0.31, 0.04, 0.04]) });
+  add(O.plateStack(4), T.x - 0.25, ty, T.z + 0.24, { spans: AFTER, settle: [0, 0.01, 0] });
+  add(O.napkin('#e9e2d4', 1), T.x - 0.58, ty, T.z + 0.16, { spans: AFTER, settle: [0, 0, 0] });
+  add(O.napkin('#e9e2d4', 2), T.x + 0.6, ty, T.z + 0.22, { spans: AFTER, settle: [0, 0, 0] });
+
   // ================================================================ plants
   const hero = heroPlant(scene, V(-1.24, 0, 0.5));
   const iv = ivy(scene, V(2.58, 2.33, 0.17), [[2.53, 2.37, 0.25], [2.36, 2.36, 0.33], [2.28, 2.25, 0.36], [2.27, 1.98, 0.37], [2.29, 1.62, 0.37], [2.26, 1.3, 0.36], [2.28, 0.98, 0.37], [2.25, 0.6, 0.36], [2.27, 0.3, 0.36]], { rate: 0.1, start: 0.14 });
@@ -313,6 +365,11 @@ export function buildLife(scene, ctx) {
   const rugBase = ctx.rugMat.color.clone();
   const rugOld = C('#d8cbbb');
   const duvetBase = ctx.duvetMat.color.clone(), duvetLater = C('#e9dfcf');
+  const wallBase = ctx.wallMat.color.clone(), wallOld = C('#e4d2bc'), wallNew = C('#ece6de'), wallOld2 = C('#e0d2c0');
+  const curtBase = ctx.curtainMat.color.clone(), curtNew = C('#e6e2da');
+  const shadeBase = ctx.shadeMat.color.clone(), shadeNew = C('#d9c7ad');
+  const spotBase = ctx.spot.color.clone(), spotNew = C('#ffc790');
+  const bulbBase = ctx.bulbMat.color.clone();
 
   return {
     life,
@@ -332,6 +389,18 @@ export function buildLife(scene, ctx) {
       const dim = smooth(LOSS, 89, age);
       if (ctx.spot) { ctx.spot.intensity = 9 * (1 - 0.45 * dim); ctx.pendantGlow.intensity = 0.35 * (1 - 0.5 * dim); }
       ctx.dim = dim;
+      // walls yellow slowly, are repainted at 50, and age again
+      const rp = smooth(49.9, 50.1, age);
+      ctx.wallMat.color.copy(wallBase).lerp(wallOld, smooth(25, 49.9, age) * (1 - rp)).lerp(wallNew, rp).lerp(wallOld2, smooth(50.1, 90, age) * rp);
+      ctx.curtainMat.color.copy(curtBase).lerp(curtNew, smooth(57.9, 58.2, age));
+      ctx.shadeMat.color.copy(shadeBase).lerp(shadeNew, smooth(61.9, 62.2, age));
+      ctx.spot.color.copy(spotBase).lerp(spotNew, smooth(59.9, 60.2, age));
+      // 90: the lamps are off, then the candle goes out
+      const off = smooth(89.8, 89.92, age);
+      ctx.lampLight.intensity = 1.4 * (1 - off); ctx.shadeMat.emissiveIntensity = 1.6 * (1 - off);
+      ctx.spot.intensity *= 1 - off; ctx.pendantGlow.intensity *= 1 - off;
+      ctx.pendantInner.emissiveIntensity = 0.45 * (1 - off); ctx.bulbMat.color.copy(bulbBase).multiplyScalar(Math.max(0.02, 1 - off));
+      ctx.off = off;
       ctx.duvetMat.color.copy(duvetBase).lerp(duvetLater, smooth(30, 31, age)).lerp(C('#d6cfc2'), smooth(58, 59, age));
     },
   };

@@ -601,3 +601,146 @@ export function cuttingJar() {
   shade(g); g.add(contact(0.1, 0.1, 0.35, 0.001));
   return g;
 }
+
+// ------------------------------------------------------------------ garments that hang over a backrest rail
+// origin = centre of the rail. Section runs: front (short, follows the backrest's lean) -> over the rail -> back (long, falls free).
+export function garment(color, { w = 0.42, front = 0.14, back = 0.4, r = 0.045, lean = 0.16, seed = 1, sleeves = true, knit = false, bulge = 0.018 } = {}) {
+  const g = G();
+  const SU = 28, SV = 46;
+  const arc = Math.PI * r, L = front + arc + back;
+  const geo = new THREE.PlaneGeometry(1, 1, SU, SV);
+  const p = geo.attributes.position;
+  const rr = rng(seed), ph = rr() * 6, ph2 = rr() * 6;
+  for (let i = 0; i < p.count; i++) {
+    const u = p.getX(i) * 2;          // -1..1 across
+    const a = (p.getY(i) + 0.5) * L;  // 0..L along the section
+    let y, z, hang = 0;
+    if (a < front) { const d = front - a; y = -d; z = r + lean * d; hang = d / front * 0.4; }
+    else if (a < front + arc) { const t = (a - front) / r; y = r * Math.sin(t); z = r * Math.cos(t); }
+    else { const d = a - front - arc; hang = d / back; y = -d; z = -r - bulge * Math.sin(Math.PI * Math.min(1, d / back)); }
+    // gravity folds grow towards the hem; the hem itself waves a little
+    const fold = (Math.sin(u * 7.5 + ph) * 0.6 + Math.sin(u * 15 + ph2) * 0.25) * 0.011 * hang;
+    if (z > 0) z += Math.abs(fold) * 0.6; else z -= Math.abs(fold);
+    if (a > front + arc) y += Math.sin(u * 5 + ph) * 0.012 * hang * hang;
+    const x = u * (w / 2) * (1 + 0.1 * hang);
+    p.setXYZ(i, x, y, z);
+  }
+  geo.computeVertexNormals();
+  const mat = std(knit ? '#ffffff' : color, 0.93, knit ? { map: knitTexture(color, seed + 5), side: THREE.DoubleSide } : { bumpMap: linenBump(seed + 40), bumpScale: 0.5, side: THREE.DoubleSide });
+  const body = mesh(geo, mat); body.castShadow = body.receiveShadow = true; g.add(body);
+  if (sleeves) for (const s of [-1, 1]) {
+    const len = back * 0.82;
+    const sl = mesh(new THREE.CylinderGeometry(0.03, 0.036, len, 10, 1, true), mat, s * (w / 2 - 0.035), -0.03 - len / 2, -r - 0.034);
+    sl.scale.z = 0.62; sl.castShadow = true; g.add(sl);
+    const cuff = mesh(new THREE.CircleGeometry(0.034, 10).rotateX(Math.PI / 2), std('#2a221c', 0.9), s * (w / 2 - 0.035), -0.03 - len, -r - 0.034);
+    cuff.scale.z = 0.62; g.add(cuff);
+  }
+  return g;
+}
+// a garment folded and laid down (on a seat). origin = bottom centre
+export function foldedCloth(color, w = 0.3, d = 0.24, h = 0.06, knit = true, seed = 3) {
+  const g = G();
+  const m = std(knit ? '#ffffff' : color, 0.95, knit ? { map: knitTexture(color, seed) } : {});
+  g.add(mesh(rbox(w, h * 0.55, d, h * 0.25, 3), m, 0, h * 0.28, 0));
+  g.add(mesh(rbox(w * 0.96, h * 0.5, d * 0.92, h * 0.24, 3), m, 0.005, h * 0.76, -0.006));
+  shade(g); return g;
+}
+
+// ------------------------------------------------------------------ small events
+export function pizzaBox() {
+  const g = G();
+  const m = std('#a8865c', 0.9, { bumpMap: linenBump(90), bumpScale: 0.2 });
+  g.add(mesh(rbox(0.33, 0.04, 0.33, 0.005), m, 0, 0.02, 0));
+  const lid = mesh(new THREE.BoxGeometry(0.33, 0.004, 0.33), m, 0, 0.04, -0.165); lid.geometry.translate(0, 0, 0.165); lid.rotation.x = -0.55; g.add(lid);
+  shade(g); g.add(contact(0.4, 0.4, 0.4, 0.001));
+  return g;
+}
+export function sketchbook() {
+  const g = G();
+  const [c, x] = canvas(256, 180); const r = rng(17);
+  x.fillStyle = '#f1ebdf'; x.fillRect(0, 0, 256, 180);
+  x.strokeStyle = 'rgba(40,35,30,0.55)'; x.lineWidth = 1.2;
+  for (let i = 0; i < 26; i++) { x.beginPath(); const y0 = 40 + r() * 100; x.moveTo(140 + r() * 20, y0); x.bezierCurveTo(170, y0 - 30 * r(), 200, y0 + 20 * r(), 240, y0 - 10); x.stroke(); }
+  x.fillStyle = 'rgba(0,0,0,0.12)'; x.fillRect(127, 0, 2, 180);
+  const p = mesh(new THREE.PlaneGeometry(0.3, 0.21).rotateX(-Math.PI / 2), std('#ffffff', 0.9, { map: toTex(c) }), 0, 0.012, 0);
+  p.receiveShadow = true; g.add(p);
+  g.add(mesh(rbox(0.31, 0.01, 0.22, 0.004), std('#2a2a2a', 0.7), 0, 0.005, 0));
+  const pen = mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.15, 6), std('#c9a14a', 0.5), 0.1, 0.018, 0.13); pen.rotation.set(Math.PI / 2, 0, 0.4); pen.castShadow = true; g.add(pen);
+  shade(g); return g;
+}
+export function cake(candles = 1) {
+  const g = plate('#efe9df', 0.12);
+  g.add(mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.06, 32), std('#efe0c8', 0.7), 0, 0.04, 0));
+  g.add(mesh(new THREE.CylinderGeometry(0.087, 0.087, 0.012, 32), std('#d8664a', 0.6), 0, 0.072, 0));
+  const fl = new THREE.MeshBasicMaterial({ color: C('#ffcc80').multiplyScalar(12) });
+  for (let i = 0; i < candles; i++) {
+    const a = (i / candles) * Math.PI * 2, rr = candles === 1 ? 0 : 0.045;
+    const cx = Math.cos(a) * rr, cz = Math.sin(a) * rr;
+    g.add(mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.035, 6), std(['#3f8fd0', '#f2b437', '#e86fa0', '#5bb35a'][i % 4], 0.5), cx, 0.095, cz));
+    const f = mesh(new THREE.SphereGeometry(0.003, 8, 6), fl, cx, 0.117, cz); f.scale.y = 2.2; g.add(f);
+  }
+  shade(g); return g;
+}
+export function suitcase(color = '#7f8e99') {
+  // packed and standing by, closed
+  const g = G();
+  const m = std(color, 0.5);
+  g.add(mesh(rbox(0.44, 0.62, 0.24, 0.035), m, 0, 0.33, 0));
+  g.add(mesh(rbox(0.45, 0.03, 0.245, 0.01), std('#5d6a73', 0.5), 0, 0.33, 0));
+  const h = mesh(new THREE.TorusGeometry(0.05, 0.009, 8, 16, Math.PI), std('#2a2a2a', 0.5), 0, 0.64, 0); g.add(h);
+  for (const x of [-0.17, 0.17]) g.add(mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.02, 12), std('#222', 0.6), x, 0.012, 0.08));
+  shade(g); g.add(contact(0.6, 0.4, 0.55));
+  return g;
+}
+export function paintJob() {
+  const g = G();
+  const sheet = mesh(new THREE.PlaneGeometry(0.7, 0.5, 8, 6).rotateX(-Math.PI / 2), std('#d9d4ca', 0.95, { side: THREE.DoubleSide }), 0, 0.003, 0);
+  const sp = sheet.geometry.attributes.position;
+  for (let i = 0; i < sp.count; i++) sp.setY(i, Math.max(0, Math.sin(sp.getX(i) * 13 + sp.getZ(i) * 7) * 0.006));
+  sheet.geometry.computeVertexNormals(); sheet.receiveShadow = true; g.add(sheet);
+  g.add(mesh(lathe([[0, 0], [0.09, 0], [0.09, 0.17], [0.092, 0.175], [0, 0.175]], 32), std('#c9ccd0', 0.35, { metalness: 0.7 }), 0.12, 0.003, 0.05));
+  g.add(mesh(new THREE.CircleGeometry(0.085, 24).rotateX(-Math.PI / 2), std('#e6dfd6', 0.5), 0.12, 0.18, 0.05));
+  const br = mesh(rbox(0.05, 0.012, 0.2, 0.004), std('#8a6a4a', 0.6), -0.14, 0.01, -0.05); br.rotation.y = 0.6; g.add(br);
+  shade(g); return g;
+}
+export function napkin(color = '#e9e2d4', seed = 1) {
+  const g = G();
+  const geo = new THREE.SphereGeometry(0.05, 12, 8); const p = geo.attributes.position; const r = rng(seed);
+  for (let i = 0; i < p.count; i++) { const k = 0.7 + r() * 0.5; p.setXYZ(i, p.getX(i) * k * 1.3, Math.max(0, p.getY(i)) * k * 0.5, p.getZ(i) * k); }
+  geo.computeVertexNormals();
+  g.add(mesh(geo, std(color, 0.95))); shade(g);
+  return g;
+}
+export function plateStack(n = 4) {
+  const g = G();
+  for (let i = 0; i < n; i++) { const pl = plate('#efe9df', 0.13); pl.position.set((i % 2) * 0.006, i * 0.012, 0); pl.rotation.y = i; g.add(pl); }
+  const k = mesh(new THREE.BoxGeometry(0.012, 0.003, 0.2), std('#c9c9c9', 0.25, { metalness: 0.9 }), 0.02, n * 0.012 + 0.012, 0); k.rotation.y = 0.4; g.add(k);
+  return g;
+}
+export function openBook(color = '#5a3a2a') {
+  const g = G();
+  const page = std('#efe8d8', 0.9);
+  for (const s of [-1, 1]) {
+    const pg = mesh(rbox(0.14, 0.012, 0.2, 0.004), page, s * 0.072, 0.01, 0); pg.rotation.z = s * -0.06; g.add(pg);
+  }
+  g.add(mesh(rbox(0.3, 0.006, 0.21, 0.003), std(color, 0.7), 0, 0.003, 0));
+  shade(g); g.add(contact(0.36, 0.28, 0.35, 0.001));
+  return g;
+}
+export function bouquet(cols = ['#e8a0a8', '#f4efe6', '#d86a5a']) {
+  const g = vaseStems('euc');
+  const r = rng(cols.length * 7);
+  for (let i = 0; i < 7; i++) {
+    const a = r() * 6.28, lean = 0.08 + r() * 0.12, L = 0.32 + r() * 0.12;
+    const f = mesh(new THREE.SphereGeometry(0.03 + r() * 0.015, 12, 8), std(cols[i % cols.length], 0.8), Math.cos(a) * lean, 0.2 + L, Math.sin(a) * lean);
+    f.scale.y = 0.75; f.castShadow = true; g.add(f);
+  }
+  return g;
+}
+// faint lighter patch + tape residue where a drawing once hung
+export function wallTrace(w = 0.22, h = 0.165) {
+  const g = G();
+  g.add(mesh(new THREE.PlaneGeometry(w, h), std('#fff8ee', 0.92, { transparent: true, opacity: 0.07, depthWrite: false }), 0, 0, 0.0015));
+  for (const s of [-1, 1]) g.add(mesh(new THREE.PlaneGeometry(0.035, 0.012), std('#c9b58a', 0.6, { transparent: true, opacity: 0.35, depthWrite: false }), s * (w / 2 - 0.02), h / 2 - 0.01, 0.0018));
+  return g;
+}

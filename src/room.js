@@ -136,6 +136,7 @@ export function buildRoom(scene, ctx) {
   const wallMat = std('#efe4d8', 0.92, { map: pl.map, bumpMap: pl.bump, bumpScale: 0.5 });
   const trimMat = std('#ebe4d8', 0.5);
   const ceilMat = std('#c9bdb2', 0.95, { map: pl.map });
+  ctx.wallMat = wallMat;
 
   // ------------------------------------------------------------ floor + ceiling + walls
   const floorGeo = new THREE.PlaneGeometry(x1 - x0, z1).rotateX(-Math.PI / 2);
@@ -244,6 +245,7 @@ export function buildRoom(scene, ctx) {
     color: C('#f1e6d6'), roughness: 0.9, side: THREE.DoubleSide, transparent: true, opacity: 0.72,
     emissive: C('#ff9c5c'), emissiveIntensity: 0.12, bumpMap: linenBump(3), bumpScale: 0.3, depthWrite: false,
   });
+  ctx.curtainMat = curtainMat;
   const curtains = [];
   const mkCurtain = (cx, w, phase) => {
     const W = w, H = 2.66, sx = 36, sy = 50;
@@ -327,6 +329,7 @@ export function buildRoom(scene, ctx) {
   const nsContact = contact(0.7, 0.6, 0.6); nsContact.position.set(NX, 0.003, 0.24); room.add(nsContact);
   const lampLight = new THREE.PointLight(C('#ffae62'), 1.4, 4.5, 2);
   lampLight.position.set(NX - 0.03, 0.9, 0.26); room.add(lampLight);
+  ctx.lampLight = lampLight; ctx.shadeMat = shadeMat;
 
   // rug
   const rugMat = std('#ffffff', 1.0, { map: rugTexture(), bumpMap: linenBump(8), bumpScale: 0.8 });
@@ -381,9 +384,9 @@ export function buildRoom(scene, ctx) {
   const domeMat = std('#1a1a1b', 0.45, { metalness: 0.3, side: THREE.DoubleSide, envMapIntensity: 0.4 });
   pend.add(mesh(lathe([[0.025, 0.24], [0.04, 0.22], [0.05, 0.17], [0.12, 0.1], [0.2, 0.03], [0.235, 0.0], [0.233, -0.004]], 64), domeMat, 0, py, 0));
   const inner = mesh(lathe([[0.232, -0.002], [0.2, 0.028], [0.12, 0.095], [0.05, 0.16], [0.03, 0.2]], 64), new THREE.MeshStandardMaterial({ color: C('#f4e8d6'), emissive: C('#ffb468'), emissiveIntensity: 0.45, side: THREE.BackSide, roughness: 0.6 }), 0, py, 0);
-  pend.add(inner);
+  pend.add(inner); ctx.pendantInner = inner.material;
   const bulb = mesh(new THREE.SphereGeometry(0.045, 24, 16), new THREE.MeshBasicMaterial({ color: C('#ffe2b0').multiplyScalar(14) }), 0, py + 0.07, 0);
-  pend.add(bulb);
+  pend.add(bulb); ctx.bulbMat = bulb.material;
   pend.position.set(tcx + 0.05, 0, tcz - 0.05);
   pend.traverse((m) => { if (m.isMesh) m.castShadow = m !== bulb && m !== inner; });
   const spot = new THREE.SpotLight(C('#ffb468'), 9, 5, 0.95, 0.9, 2);

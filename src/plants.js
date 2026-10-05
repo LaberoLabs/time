@@ -17,14 +17,14 @@ export function heroPlant(parent, at) {
   const p1m = fadeable(pot1), p2m = fadeable(pot2);
 
   const r = rng(404);
-  const vigor = (a) => keys(a, [[20, 0.5], [25, 0.62], [30, 0.82], [34, 0.95], [38, 1.12], [45, 1.32], [60, 1.4], [90, 1.42]]);
+  const vigor = (a) => keys(a, [[20, 0.5], [25, 0.62], [30, 0.82], [34, 0.95], [38, 1.12], [45, 1.32], [50, 1.28], [55, 1.04], [90, 1.0]]);
   const leaves = [];
   const leafGreen = C('#4d6c3c'), leafOld = C('#a8944e');
   const N = 100;
   for (let i = 0; i < N; i++) {
     const birth = (i < 34 ? 19.5 + i * (25 / 34) : 44.5 + (i - 34) * (45 / (N - 34))) + r() * 0.5;
     const life = 6 + r() * 5;
-    const az = -0.6 + ((i * 0.6180339) % 1) * 1.9; // towards the room only
+    const az = -0.25 + ((i * 0.6180339) % 1) * 1.6; // towards the room and the door, away from the photographs
     const g = new THREE.Group();
     const pet = new THREE.Group();
     const petMesh = mesh(new THREE.CylinderGeometry(0.008, 0.012, 1, 6).translate(0, 0.5, 0), std('#4f6a3c', 0.6));

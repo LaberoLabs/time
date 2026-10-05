@@ -78,7 +78,6 @@ addEventListener('resize', resize);
 resize();
 
 // ------------------------------------------------------------------ scroll = time
-const ageEl = document.getElementById('age');
 const hintEl = document.getElementById('hint');
 const maxScroll = () => document.documentElement.scrollHeight - innerHeight;
 const ageFromScroll = () => AGE0 + (AGE1 - AGE0) * clamp(scrollY / Math.max(1, maxScroll()), 0, 1);
@@ -119,11 +118,9 @@ function step(dt, t) {
   ctx.ageU.value = encAge(age) / 255;
   room.update(age, t);
   life.update(age, t, vel);
-  renderer.toneMappingExposure = 1.0 - 0.1 * (ctx.dim || 0);
+  renderer.toneMappingExposure = 1.0 - 0.1 * (ctx.dim || 0) - 0.06 * (ctx.off || 0);
   exterior.update(age, t, camera.position);
 
-  const a = Math.floor(age + 1e-6);
-  if (a !== shownAge) { shownAge = a; ageEl.textContent = a; }
 
   if (params.has('raw')) renderer.render(scene, camera); else post.composer.render(dt);
   if (first) { first = false; canvas.classList.add('on'); document.body.classList.add('ready'); }
