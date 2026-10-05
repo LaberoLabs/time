@@ -963,3 +963,27 @@ export function wovenArt(seed = 5) {
   for (let i = 0; i < 4000; i++) { x.fillStyle = `rgba(0,0,0,${R() * 0.12})`; x.fillRect(R() * 256, R() * 320, 2, 1); }
   return toTex(c);
 }
+
+// a quiet celebration
+export function champagneFlute() {
+  const g = G();
+  const gl = mesh(lathe([[0, 0], [0.032, 0], [0.032, 0.004], [0.005, 0.01], [0.004, 0.1], [0.012, 0.11], [0.024, 0.15], [0.026, 0.21], [0.025, 0.225]], 32), glassMat()); gl.renderOrder = 6; g.add(gl);
+  const wine = mesh(lathe([[0, 0.112], [0.011, 0.112], [0.022, 0.15], [0.024, 0.19], [0, 0.19]], 24), std('#e8cf7a', 0.1, { emissive: C('#d8b860'), emissiveIntensity: 0.25, transparent: true, opacity: 0.8 }));
+  wine.renderOrder = 5; g.add(wine);
+  g.add(contact(0.09, 0.09, 0.3, 0.001));
+  return g;
+}
+export function champagneBottle() {
+  const g = G();
+  g.add(mesh(lathe([[0, 0], [0.042, 0], [0.043, 0.18], [0.034, 0.23], [0.016, 0.27], [0.015, 0.31], [0, 0.31]], 32), new THREE.MeshPhysicalMaterial({ color: C('#1f2a1a'), roughness: 0.1, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.8 })));
+  g.add(mesh(new THREE.CylinderGeometry(0.0175, 0.022, 0.07, 20), std('#c9a14a', 0.3, { metalness: 0.8 }), 0, 0.28, 0)); // foil
+  g.add(mesh(new THREE.CylinderGeometry(0.0435, 0.0435, 0.07, 32, 1, true), std('#efe6d0', 0.7), 0, 0.1, 0)); // label
+  shade(g); g.add(contact(0.13, 0.13, 0.5, 0.001));
+  return g;
+}
+export function milkGlass(level = 0.75) {
+  const g = G();
+  g.add(mesh(lathe([[0, 0], [0.032, 0], [0.036, 0.11], [0.034, 0.11], [0, 0.006]], 28), glassMat()));
+  g.add(mesh(new THREE.CylinderGeometry(0.0305, 0.0285, 0.1 * level, 24), new THREE.MeshPhysicalMaterial({ color: C('#f6f3ec'), roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.15, envMapIntensity: 2.5, emissive: C('#d8d2c6'), emissiveIntensity: 0.35 }), 0, 0.006 + 0.05 * level, 0));
+  g.add(contact(0.1, 0.1, 0.3, 0.001)); return g;
+}

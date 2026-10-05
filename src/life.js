@@ -89,7 +89,7 @@ export function buildLife(scene, ctx) {
     wob: { p: 0.05, r: 0.12, f: 1.1, seed: 11 },
   });
   const chairB = add(O.chairLadder(), T.x - 1.16, 0, T.z + 0.04, {
-    in: 28.15, fi: 0.5, ry: Math.PI / 2 - 0.1, settle: [-0.25, 0, 0.1],
+    spans: [...SCENES.filter((s) => s.kind === 'date').map((s) => [s.a - 0.04, s.b + 0.02, 0.06, 0.06]), [28.15, Infinity, 0.5, 0.4]], ry: Math.PI / 2 - 0.1, settle: [-0.25, 0, 0.1],
     wob: { p: 0.06, r: 0.14, f: 1.0, seed: 23, until: LOSS },
   });
   const kc = O.kidChair();
@@ -111,7 +111,7 @@ export function buildLife(scene, ctx) {
   const coat1 = add(O.garment('#8a5a3a', { seed: 1 }), 0, 0.95, -0.21, { follow: chairA, out: 59.6, fo: 0.3, settle: [0, 0.05, 0] });
   add(O.garment('#4f5a66', { seed: 6, back: 0.42 }), 0, 0.95, -0.21, { follow: chairA, in: 60.0, fi: 0.3, out: END, fo: 0.25, settle: [0, 0.05, 0] }); // the coat, replaced
   const scarf = add(O.garment('#b5523b', { w: 0.17, r: 0.092, front: 0.2, back: 0.3, knit: true, sleeves: false, bulge: 0.004, seed: 4 }), 0.05, 0.95, -0.21, { follow: chairA, in: 30.6, out: END, fo: 0.25, settle: [0, 0.04, 0] });
-  const coat2 = add(O.garment('#b7a48a', { seed: 2, knit: true, back: 0.34, front: 0.12, lean: 0, r: 0.05 }), 0, 0.935, -0.185, { follow: chairB, in: 28.3, out: LOSS + 3.0, fo: 0.3, settle: [0, 0.05, 0] });
+  const coat2 = add(O.garment('#b7a48a', { seed: 2, knit: true, back: 0.34, front: 0.12, lean: 0, r: 0.05 }), 0, 0.935, -0.185, { follow: chairB, spans: [...SCENES.filter((s) => s.kind === 'date').map((s) => [s.a, s.b, 0.05, 0.05]), [28.3, LOSS + 3.0, 0.4, 0.3]], settle: [0, 0.05, 0] });
   // afterwards it is folded and left on their seat for a while
   add(O.foldedCloth('#b7a48a', 0.3, 0.24, 0.06, true, 9), 0, 0.48, 0.02, { follow: chairB, in: LOSS + 3.25, out: 80.0, fi: 0.25, fo: 0.4, settle: [0, 0.04, 0] });
   const kidCoat = add(O.garment('#d9a22a', { seed: 3, w: 0.32, back: 0.3, front: 0.11, r: 0.055, lean: 0.38 }), 0, 0.925, -0.175, { follow: kidChair, in: 38.8, out: 41.4, settle: [0, 0.05, 0] });
@@ -220,16 +220,17 @@ export function buildLife(scene, ctx) {
   put(O.newspaper(3), -0.2, 0.28, { spans: W('brunch2'), ry: 0.1 });
   // friends round when they were young: pizza boxes, beer, cards; at dawn the boxes are closed and the bottles empty
   put(O.pizzaOpen(3), 0.3, 0.15, { spans: W('friendsYoung'), ry: -0.1 });
-  put(O.pizzaClosed(), 0.65, -0.17, { spans: chain('friendsYoung', 'friendsYoungAfter') });
-  put(O.pizzaClosed(), 0.3, 0.15, { spans: W('friendsYoungAfter') });
+  put(O.pizzaClosed(), 0.65, -0.17, { spans: W('friendsYoung') });
   [[-0.15, -0.28], [-0.6, -0.15], [-0.35, 0.32], [0.05, 0.36]].forEach(([x, z], i) => put(O.beer(), x, z, { spans: W('friendsYoung'), wob: { p: 0.01, r: 0, f: 3, seed: 100 + i } }));
   [[0.68, 0.2], [0.76, 0.3], [0.62, 0.32], [0.76, 0.12]].forEach(([x, z]) => put(O.beer(false), x, z, { spans: W('friendsYoungAfter') }));
   put(O.cards(4), -0.3, 0.0, { spans: W('friendsYoung') });
   put(O.servingDish('chips', 3), -0.6, 0.15, { spans: chain('friendsYoung', 'friendsYoungAfter') });
   // a quiet discovery, one morning
   put(O.pregnancyTest(), -0.55, -0.12, { spans: W('pregnant'), ry: 0.3, settle: [0, 0.01, 0] });
-  put(O.waterGlass(0.4), -0.72, 0.14, { spans: W('pregnant') });
-  put(O.mug('#e3dccf'), -0.3, -0.3, { spans: many('pregnant', 'babyprep') });
+  put(O.milkGlass(0.75), -0.7, 0.12, { spans: W('pregnant') });   // theirs: milk
+  put(O.champagneFlute(), 0.08, -0.32, { spans: W('pregnant') });
+  put(O.champagneBottle(), 0.2, -0.12, { spans: W('pregnant') });
+  put(O.mug('#e3dccf'), -0.3, -0.3, { spans: W('babyprep') });
   // getting ready: tiny clothes folded on the table
   put(O.babyThings(), 0.28, 0.18, { spans: W('babyprep'), ry: 0.2 });
   // birthdays: cake at the child's place, tea for the parents, juice for the child
@@ -355,7 +356,6 @@ export function buildLife(scene, ctx) {
   });
   add(O.balanceBike(), -0.1, 0, 3.0, { in: 36.8, out: 40.8, ry: 0.9, settle: [0.2, 0, 0.1],
     path: [[36.8, [-0.1, 0, 3.0], 0.9], [38.5, [-0.55, 0, 3.2], 0.3]] });
-  add(O.skateboard(), -0.45, 0, 1.5, { in: 41.6, out: 51.3, ry: 0.15, settle: [0, 0.03, 0] });
 
   // ================================================================ walls
   // a print they brought with them
