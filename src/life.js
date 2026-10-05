@@ -18,12 +18,12 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const LOSS = 73.5; // the last evening with two glasses
 const END = 89.6; // the last things put down are never picked up again
 // the grown child, coming home
-const VISITS = [[56.2, 56.5], [60.1, 60.4], [64.3, 64.6], [66.0, 66.35], [67.2, 67.55], [68.5, 68.85], [70.1, 70.4], [73.6, 73.9], [77.0, 77.6], [78.4, 78.8], [80.4, 80.8], [83.1, 83.5], [85.6, 85.9], [88.2, 88.5]].map(([a, b]) => [a, b, 0.1, 0.1]);
+const VISITS = [[60.6, 60.95], [66.0, 66.35], [70.1, 70.45], [77.0, 77.4], [84.0, 84.4]].map(([a, b]) => [a, b, 0.1, 0.1]);
 const VPRE = VISITS.filter(([a]) => a < LOSS).map(([a, b]) => [a, b]);
 const VPOST = VISITS.filter(([a]) => a > LOSS).map(([a, b]) => [a, b]);
-const GRANDCHILD = [66.0, 67.2, 68.5, 70.1];
-const BIRTHDAYS = Array.from({ length: 11 }, (_, k) => 34.7 + k);
-const DINNERS = [53.7, 54.6, 57.0, 58.2, 59.3, 60.7];
+const GRANDCHILD = [66.0, 70.1];
+const BIRTHDAYS = [34.7]; // the first one only; growing up is told by their things
+const DINNERS = [54.0, 57.4]; // one dinner party, one games night
 const TRIPS = [30.25, 37.08, 55.15, 63.35, 71.5];
 
 // ---------------------------------------------------------------- life as scenes
@@ -32,10 +32,9 @@ export const SCENES = [];
 const sc = (a, b, tod, kind, o = {}) => SCENES.push({ a, b, tod, kind, table: true, keep: false, w: 4, ...o });
 sc(25.35, 25.75, 'night', 'pizza', { keep: true });           // working late, takeaway
 sc(26.05, 26.4, 'morning', 'breakfast1', { keep: true });     // breakfast alone
-sc(26.6, 26.9, 'dusk', 'date'); sc(27.25, 27.55, 'dusk', 'date');
+sc(26.8, 27.1, 'dusk', 'date');
 sc(28.85, 29.3, 'day', 'movein', { table: false });
 sc(29.7, 30.0, 'dusk', 'dinner2');                            // a cooked dinner for two
-sc(30.85, 31.15, 'morning', 'brunch2');
 sc(31.5, 31.82, 'night', 'friendsYoung'); sc(31.88, 32.08, 'dawn', 'friendsYoungAfter');
 sc(32.95, 33.2, 'morning', 'pregnant');
 sc(33.3, 33.65, 'day', 'babyprep');
@@ -44,26 +43,32 @@ sc(38.3, 38.55, 'golden', 'familyDinner');
 sc(40.2, 40.5, 'morning', 'familyBreakfast');
 sc(48.9, 49.15, 'night', 'teenTakeaway');
 sc(49.6, 50.25, 'day', 'paint', { table: false, w: 3 });
-sc(51.9, 53.0, 'day', 'moveout', { table: false, w: 2.5 });
-DINNERS.forEach((d, i) => { const games = i % 2 === 1; sc(d, d + 0.32, games ? 'night' : 'dusk', games ? 'games' : 'party', { w: 5 }); sc(d + 0.38, d + 0.55, 'dawn', games ? 'gamesAfter' : 'partyAfter', { w: 5 }); });
-TRIPS.forEach((t) => sc(t, t + 0.3, 'day', 'trip', { table: false, w: 3 }));
+sc(51.9, 53.0, 'day', 'moveout', { table: false, w: 3.5 });
+DINNERS.forEach((d, i) => { const games = i === 1; sc(d, d + 0.32, games ? 'night' : 'dusk', games ? 'games' : 'party', { w: 5 }); sc(d + 0.38, d + 0.55, 'dawn', games ? 'gamesAfter' : 'partyAfter', { w: 5 }); });
+TRIPS.forEach((t) => sc(t, t + 0.3, 'day', 'trip', { table: false, w: 2 }));
 VPRE.forEach(([a, b]) => sc(a, b, 'day', 'lunch', { grand: GRANDCHILD.includes(a), w: 3 }));
-[62.9, 67.8, 71.0].forEach((a) => sc(a, a + 0.25, 'golden', 'soup2'));
+sc(67.8, 68.05, 'golden', 'soup2');
 sc(65.2, 65.45, 'morning', 'breakfastOld');
 sc(73.15, 73.45, 'golden', 'lastEvening');
-sc(75.3, 75.55, 'dusk', 'supperAlone');
-sc(78.0, 78.25, 'morning', 'breakfastAlone');
+sc(75.3, 75.55, 'dusk', 'supperAlone'); sc(82.3, 82.55, 'dusk', 'supperAlone');
 VPOST.forEach(([a, b]) => sc(a, b, 'day', 'teaVisit', { w: 3 }));
 sc(86.6, 86.85, 'night', 'nightAlone', { keep: true });
 sc(89.35, 89.75, 'dusk', 'end', { table: false, w: 6 }); sc(89.8, 90.6, 'night', 'end', { table: false, w: 6 });
 SCENES.sort((x, y) => x.a - y.a);
 const win = (kind) => SCENES.filter((s) => s.kind === kind).map((s) => [s.a, s.b, 0.05, 0.05]);
+// an evening and its morning after as one unbroken stretch, for things that stay on the table all night
+const chain = (k1, k2) => SCENES.filter((s) => s.kind === k1).map((s) => {
+  const t = SCENES.find((u) => u.kind === k2 && u.a >= s.b && u.a - s.b < 0.2);
+  return [s.a, t ? t.b : s.b, 0.05, 0.05];
+});
 const TABLE_HOLES = SCENES.filter((s) => s.table && !s.keep).map((s) => [s.a - 0.04, s.b + 0.08]);
 const ALL_TABLE = SCENES.filter((s) => s.table).map((s) => [s.a - 0.04, s.b + 0.08]);
 // everyday things on the table, put aside whenever the table is used for something else
 const daily = (list, holes = TABLE_HOLES) => subtract(iv(list), holes);
 // moments where time should slow so they can be seen (consumed by main.js scroll mapping)
-export const BEATS = SCENES.map((s) => [s.a, s.b, s.w]);
+// stretches where nothing happens but time should still be felt: the first year alone, and the last quiet years
+const STILL = [[73.5, 74.8, 3], [79.0, 81.5, 1.6], [85.0, 89.3, 1.4]];
+export const BEATS = [...SCENES.map((s) => [s.a, s.b, s.w]), ...STILL];
 // the light each moment happens in
 export function todLayers(age) {
   const out = [];
@@ -120,7 +125,7 @@ export function buildLife(scene, ctx) {
 
   // ---------- the things that stay: candle (lit from 29 until the very end) and flowers
   add(O.vaseStems('dried'), T.x + 0.68, ty, T.z - 0.24, { in: 28.4, out: 31.0 });
-  add(O.vaseStems('euc'), T.x + 0.74, ty, T.z - 0.33, { spans: subtract(iv([[42.1, 77.4]], 0.4, 0.5), SCENES.filter((s) => s.kind === 'party').map((s) => [s.a - 0.06, s.b + 0.06])),
+  add(O.vaseStems('euc'), T.x + 0.74, ty, T.z - 0.33, { spans: subtract(iv([[42.1, 77.4]], 0.4, 0.5), chain('party', 'partyAfter').map(([a, b]) => [a - 0.06, b + 0.06])),
     update(age, p, o) { const d = smooth(LOSS + 1.5, 77.2, age); o.traverse((m) => { if (m.isMesh && m.material.name === 'leaf') m.material.color.set('#8fa38f').lerp(C('#9a8a62'), d); }); } });
   const cnd = O.candle();
   add(cnd, T.x + 0.02, ty, T.z + 0.02, {
@@ -155,21 +160,20 @@ export function buildLife(scene, ctx) {
   // together: their paperback at their end
   put(O.bookFlat('#6b2f3a', 0.13, 0.2, 0.03), -0.62, -0.05, { spans: daily([[28.0, 32.9]]), ry: -0.3 });
   // pregnancy and the small-child years: tea at both places
-  put(O.mug('#e3dccf'), -0.46, -0.3, { spans: daily([[33.2, 41.7], [64.8, LOSS], [79.4, END]]), wob: { p: 0.015, r: 0.6, f: 2.4, seed: 31 } });
-  put(O.mug('#3f5a6a'), -0.72, -0.12, { spans: daily([[37.6, 41.7], [61.2, LOSS]]), wob: { p: 0.015, r: 0.8, f: 2.1, seed: 33 } });
+  put(O.mug('#e3dccf'), -0.46, -0.3, { spans: daily([[33.2, 41.7], [64.8, LOSS]]), wob: { p: 0.015, r: 0.6, f: 2.4, seed: 31 } });
+  put(O.mug('#3f5a6a'), -0.72, -0.12, { spans: daily([[37.6, 41.45], [61.2, LOSS]]), wob: { p: 0.015, r: 0.8, f: 2.1, seed: 33 } });
   // working years: a newer laptop, a phone, their folder of papers — gone at retirement
   const lap2 = O.laptop();
   put(lap2, -0.2, -0.25, { dynamicBox: true, spans: daily([[41.8, 64.8]]), ry: Math.PI - 0.05, wob: { p: 0.01, r: 0.05, f: 1.3, seed: 34 } });
   put(O.phone(), 0.12, -0.34, { spans: daily([[41.8, END]]), ry: 0.2, wob: { p: 0.01, r: 0.3, f: 2.7, seed: 35 } });
   put(O.bookFlat('#2f6fb3', 0.23, 0.3, 0.015), -0.62, -0.08, { spans: daily([[41.8, 60.2]]), ry: 0.1 });
   // retired: the paper in the mornings, later a tablet; a jigsaw for a winter
-  put(O.newspaper(), -0.16, -0.12, { spans: daily([[68.4, LOSS], [79.4, 81.0]]), wob: { p: 0.008, r: 0.08, f: 2.3, seed: 82 } });
+  put(O.newspaper(), -0.16, -0.12, { spans: daily([[68.4, LOSS]]), wob: { p: 0.008, r: 0.08, f: 2.3, seed: 82 } });
   put(O.tablet(), 0.35, -0.28, { spans: daily([[62.6, END]]), wob: { p: 0.008, r: 0.08, f: 1.8, seed: 81 } });
   put(O.jigsaw(), -0.3, 0.24, { spans: daily([[61.4, 63.9]]) });
   // alone: a closed book and water at first; later tea, a plate, an open book, a cutting from the old plant
-  put(O.bookFlat('#3d4a3a', 0.14, 0.21, 0.03), -0.2, -0.2, { spans: daily([[LOSS + 0.5, 79.0]]), ry: 0.2 });
-  put(O.waterGlass(0.6), -0.04, -0.36, { spans: daily([[LOSS + 0.5, 79.0]]) });
-  put(O.plate('#efe9df', 0.12), -0.16, -0.18, { spans: daily([[81.4, END]]), wob: { p: 0.008, r: 0.3, f: 2, seed: 83 } });
+  put(O.bookFlat('#3d4a3a', 0.14, 0.21, 0.03), -0.2, -0.2, { spans: daily([[LOSS + 0.5, 84.2]]), ry: 0.2 });
+  put(O.waterGlass(0.6), -0.04, -0.36, { spans: daily([[LOSS + 0.5, END]]) });
   put(O.openBook('#3d4a3a'), -0.15, 0.1, { spans: daily([[84.4, END]]), ry: 0.08 });
   put(O.cuttingJar(), 0.3, 0.1, { spans: daily([[85.4, END]]) }); // where the fruit bowl was
   put(O.fruitBowl(), 0.22, 0.12, { spans: daily([[36.6, LOSS + 0.8]]) });
@@ -196,8 +200,9 @@ export function buildLife(scene, ctx) {
   // a date: pasta, two glasses
   put(O.plateWith('pasta', 0.13, 2), -0.15, -0.22, { spans: W('date') });
   put(O.plateWith('pasta', 0.13, 3), -0.64, 0.04, { spans: W('date'), ry: 1.4 });
-  put(O.wineGlass(0.55), 0.08, -0.32, { spans: many('date', 'dinner2', 'lastEvening', 'party', 'partyAfter', 'games', 'gamesAfter') });
-  put(O.wineGlass(0.45), -0.62, -0.22, { spans: many('date', 'dinner2', 'lastEvening', 'party', 'partyAfter', 'games', 'gamesAfter') });
+  const EVENINGS = () => union(W('date'), W('dinner2'), W('lastEvening'), chain('party', 'partyAfter'), chain('games', 'gamesAfter'));
+  put(O.wineGlass(0.55), 0.08, -0.32, { spans: EVENINGS() });
+  put(O.wineGlass(0.45), -0.62, -0.22, { spans: EVENINGS() });
   put(O.bottle(), 0.15, 0.05, { spans: W('date') });
   // the first dinner they cook together, after moving in
   put(O.plateWith('roast', 0.13, 4), -0.15, -0.22, { spans: many('dinner2', 'familyDinner', 'party') });
@@ -215,12 +220,12 @@ export function buildLife(scene, ctx) {
   put(O.newspaper(3), -0.2, 0.28, { spans: W('brunch2'), ry: 0.1 });
   // friends round when they were young: pizza boxes, beer, cards; at dawn the boxes are closed and the bottles empty
   put(O.pizzaOpen(3), 0.3, 0.15, { spans: W('friendsYoung'), ry: -0.1 });
-  put(O.pizzaClosed(), 0.65, -0.17, { spans: many('friendsYoung', 'friendsYoungAfter') });
+  put(O.pizzaClosed(), 0.65, -0.17, { spans: chain('friendsYoung', 'friendsYoungAfter') });
   put(O.pizzaClosed(), 0.3, 0.15, { spans: W('friendsYoungAfter') });
   [[-0.15, -0.28], [-0.6, -0.15], [-0.35, 0.32], [0.05, 0.36]].forEach(([x, z], i) => put(O.beer(), x, z, { spans: W('friendsYoung'), wob: { p: 0.01, r: 0, f: 3, seed: 100 + i } }));
   [[0.68, 0.2], [0.76, 0.3], [0.62, 0.32], [0.76, 0.12]].forEach(([x, z]) => put(O.beer(false), x, z, { spans: W('friendsYoungAfter') }));
   put(O.cards(4), -0.3, 0.0, { spans: W('friendsYoung') });
-  put(O.servingDish('chips', 3), -0.6, 0.15, { spans: many('friendsYoung', 'friendsYoungAfter') });
+  put(O.servingDish('chips', 3), -0.6, 0.15, { spans: chain('friendsYoung', 'friendsYoungAfter') });
   // a quiet discovery, one morning
   put(O.pregnancyTest(), -0.55, -0.12, { spans: W('pregnant'), ry: 0.3, settle: [0, 0.01, 0] });
   put(O.waterGlass(0.4), -0.72, 0.14, { spans: W('pregnant') });
@@ -264,22 +269,22 @@ export function buildLife(scene, ctx) {
   put(O.plateWith('roast', 0.13, 13), -0.66, 0.06, { spans: W('party'), ry: 1.2 });
   put(O.plateWith('salad', 0.13, 14), -0.25, 0.26, { spans: W('party') });
   put(O.plateWith('roast', 0.13, 15), 0.62, 0.22, { spans: W('party') });
-  put(O.wineGlass(0.4), 0.0, 0.36, { spans: many('party', 'partyAfter', 'games', 'gamesAfter') });
-  put(O.wineGlass(0.3), 0.8, 0.4, { spans: many('party', 'partyAfter') });
-  put(O.beer(), 0.6, 0.25, { spans: W('games') });
+  put(O.wineGlass(0.4), 0.0, 0.36, { spans: union(chain('party', 'partyAfter'), chain('games', 'gamesAfter')) });
+  put(O.wineGlass(0.3), 0.8, 0.4, { spans: chain('party', 'partyAfter') });
+  put(O.beer(), 0.6, 0.25, { spans: chain('games', 'gamesAfter') });
   put(O.servingDish('saladBowl', 16), 0.22, 0.14, { spans: W('party') });
-  put(O.bottle(), 0.1, -0.06, { spans: many('party', 'partyAfter', 'games', 'gamesAfter') });
-  put(O.bouquet(), 0.74, -0.33, { spans: W('party') });
-  put(O.boardGame(17), -0.25, 0.24, { spans: many('games', 'gamesAfter'), ry: 0.05 });
-  put(O.servingDish('cheese', 18), 0.25, 0.12, { spans: many('games', 'gamesAfter') });
-  put(O.servingDish('chips', 19), -0.62, 0.12, { spans: many('games', 'gamesAfter') });
+  put(O.bottle(), 0.1, -0.06, { spans: union(chain('party', 'partyAfter'), chain('games', 'gamesAfter')) });
+  put(O.bouquet(), 0.74, -0.33, { spans: chain('party', 'partyAfter') });
+  put(O.boardGame(17), -0.25, 0.24, { spans: chain('games', 'gamesAfter'), ry: 0.05 });
+  put(O.servingDish('cheese', 18), 0.25, 0.12, { spans: chain('games', 'gamesAfter') });
+  put(O.servingDish('chips', 19), -0.62, 0.12, { spans: chain('games', 'gamesAfter') });
   // the morning after: plates stacked, empty bottles, napkins where people sat
   put(O.plateStack(4), -0.25, 0.24, { spans: W('partyAfter'), settle: [0, 0.01, 0] });
   put(O.bottle(), 0.42, -0.15, { spans: many('partyAfter', 'gamesAfter') });
   put(O.napkin('#e9e2d4', 1), -0.58, 0.16, { spans: W('partyAfter') });
   put(O.napkin('#e9e2d4', 2), 0.6, 0.22, { spans: W('partyAfter') });
   put(O.napkin('#e9e2d4', 3), -0.42, -0.1, { spans: W('gamesAfter') });
-  put(O.napkin('#e9e2d4', 4), 0.62, 0.32, { spans: W('gamesAfter') });
+  put(O.napkin('#e9e2d4', 4), 0.45, 0.33, { spans: W('gamesAfter') });
   // the grown child home for lunch (and sometimes someone very small)
   put(O.plateWith('roast', 0.13, 20), -0.15, -0.22, { spans: W('lunch') });
   put(O.plateWith('salad', 0.13, 21), -0.66, 0.06, { spans: W('lunch'), ry: 0.7 });
@@ -305,7 +310,7 @@ export function buildLife(scene, ctx) {
 
   // a chair pulled up for whoever comes, with their coat over it
   const guestChair = add(O.chairSpindle(std('#5d5a54', 0.6)), T.x - 0.28, 0, T.z + 0.82, {
-    spans: many('friendsYoung', 'friendsYoungAfter', 'party', 'partyAfter', 'games', 'gamesAfter', 'lunch', 'teaVisit'), ry: Math.PI - 0.12, settle: [0, 0, 0.2],
+    spans: union(chain('friendsYoung', 'friendsYoungAfter'), chain('party', 'partyAfter'), chain('games', 'gamesAfter'), W('lunch'), W('teaVisit')), ry: Math.PI - 0.12, settle: [0, 0, 0.2],
     update(age, p, o) {
       const late = SCENES.some((s) => (s.kind === 'partyAfter' || s.kind === 'gamesAfter' || s.kind === 'friendsYoungAfter') && age > s.a - 0.02 && age < s.b + 0.05);
       if (late) { o.position.z += 0.16; o.position.x -= 0.06; o.rotation.y += 0.35; }
@@ -341,7 +346,7 @@ export function buildLife(scene, ctx) {
   const bunnyAt = [[33.9, 35.7, -1.72, 0.61, 1.47, 0.4], [35.9, 36.9, -0.85, 0.014, 2.0, -0.6], [37.05, 38.2, -0.78, 0.014, 1.95, 0.9], [38.35, 52.9, -2.18, 0.6, 0.72, 0.2], [53.1, Infinity, 2.95, 2.335, 0.2, -0.3]];
   const bunnies = bunnyAt.map(([a, b, x, y, z, ry], i) => add(O.bunny(), x, y, z, { in: a, out: b, fi: 0.1, fo: 0.1, ry, onBed: true, settle: [0, 0.04, 0], allow: i === 0 ? [cradle] : [] }));
   add(O.blocks(3), -0.7, 0.014, 2.35, {
-    spans: [[35.3, 39.6, 0.4, 0.4], [66.05, 66.35, 0.12, 0.12], [67.25, 67.55, 0.12, 0.12], [68.55, 68.85, 0.12, 0.12], [70.15, 70.4, 0.12, 0.12]], settle: [0, 0.04, 0],
+    spans: [[35.3, 39.6, 0.4, 0.4], ...GRANDCHILD.map((g) => [g + 0.05, g + 0.33, 0.08, 0.08])], settle: [0, 0.04, 0],
     path: [[35.3, [-0.7, 0.014, 2.35], 0], [36.1, [-1.3, 0.014, 2.9], 1.2], [37.0, [-1.35, 0.014, 2.3], 1.6], [38.6, [-1.25, 0.014, 2.5], 1.6], [66, [-0.85, 0.014, 2.5], 0.7], [68, [-0.5, 0.014, 2.2], 2.4]],
   });
   add(O.ball(['#d8432f', '#f4f1ea', '#3a7cc6'], 0.075), -0.3, 0.014, 2.1, {
