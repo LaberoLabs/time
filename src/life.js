@@ -11,7 +11,7 @@ import * as O from './objects.js';
 import { heroPlant, ivy, olive } from './plants.js';
 import { std, mesh, C } from './build.js';
 import { inkPrint, abstractPrint, photoTexture, childDrawing, rugTexture2, BOOK_COLORS, KID_BOOK_COLORS, canvas, toTex } from './tex.js';
-import { rng, smooth, keys, clamp, lerp, noise1, iv, union, subtract, presence } from './util.js';
+import { rng, smooth, clamp, lerp, union, subtract, presence } from './util.js';
 import { makePace } from './pace.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);

@@ -1,3 +1,11 @@
 node_modules/
 shots/
 dist/
+.vercel/
+.env
+.env.*
+*.log
+.DS_Store
+
+# review / screenshot output (existing tracked screenshots stay tracked; new ones are not picked up)
+screenshots/

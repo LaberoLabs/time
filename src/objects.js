@@ -1,6 +1,6 @@
 // Procedural objects of a life. Each returns a Group with its origin at its resting point.
 import * as THREE from 'three';
-import { std, shade, rbox, mesh, lathe, contact, pillowGeo, drapeGeo, leafGeo, tube, fixNormals, fabric, glazed, C } from './build.js';
+import { std, shade, rbox, mesh, lathe, contact, pillowGeo, drapeGeo, leafGeo, tube, fabric, glazed, C } from './build.js';
 import { woodTexture, knitTexture, linenBump, spineTexture, toTex, canvas, garmentMap } from './tex.js';
 import { rng } from './util.js';
 
