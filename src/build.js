@@ -29,6 +29,27 @@ export function glazed(color, extra = {}) {
   return new THREE.MeshPhysicalMaterial({ color: C(color), roughness: 0.38, metalness: 0, clearcoat: 0.7, clearcoatRoughness: 0.18, ...extra });
 }
 
+// True when nothing in the material can make a pixel less than fully opaque at opacity 1: no alpha map, alpha test
+// or hash, no vertex alpha, normal blending, and a colour map (if any) without a single non-opaque texel. Such a
+// material, once fully there, looks exactly the same drawn as a solid (or single-pass) surface as it does blended.
+const _solidTex = new WeakMap();
+function texSolid(t) {
+  if (!t) return true;
+  if (_solidTex.has(t)) return _solidTex.get(t);
+  let ok = false;
+  const im = t.image;
+  if (im && im.getContext) {
+    const d = im.getContext('2d').getImageData(0, 0, im.width, im.height).data;
+    ok = true; for (let i = 3; i < d.length; i += 4) if (d[i] < 255) { ok = false; break; }
+  }
+  _solidTex.set(t, ok);
+  return ok;
+}
+export function alphaIsOne(m) {
+  return m.blending === THREE.NormalBlending && !m.alphaMap && !m.alphaTest && !m.alphaHash && !m.alphaToCoverage
+    && !m.vertexColors && !m.premultipliedAlpha && !m.transmission && !m.isShaderMaterial && texSolid(m.map);
+}
+
 export function shade(o, cast = true, recv = true) {
   o.traverse((m) => { if (m.isMesh) { m.castShadow = cast; m.receiveShadow = recv; } });
   return o;

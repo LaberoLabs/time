@@ -3,6 +3,7 @@ import path from 'node:path';
 
 // Dev helper: POST /__shot?name=x with a PNG data URL body writes shots/x.png
 export default {
+  base: './', // relative URLs, so the build works from any path (GitHub Pages serves it under /<repo>/)
   plugins: [{
     name: 'shot-writer',
     configureServer(server) {

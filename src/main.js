@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { buildExterior } from './exterior.js';
 import { buildRoom } from './room.js';
-import { buildLife, BEATS, todLayers } from './life.js';
+import { buildLife, BEATS, PACE, todLayers } from './life.js';
 import { resolve, applyDaylight } from './daylight.js';
 import { buildPost } from './post.js';
-import { clamp } from './util.js';
+import { clamp, smooth } from './util.js';
 import { encAge } from './tex.js';
 
-const AGE0 = 25, AGE1 = 90;
+import { AGE0, AGE1 } from './pace.js';
+import { makeMusic } from './music.js'; // the score: Track 1, a one-second breath, Track 2
 
 // ------------------------------------------------------------------ renderer
 const canvas = document.getElementById('c');
@@ -59,9 +60,45 @@ const exterior = buildExterior(scene, sunVis);
 const room = buildRoom(scene, ctx);
 const life = buildLife(scene, ctx);
 const post = buildPost(renderer, scene, camera);
-// compile every material up front so nothing hitches when it first appears
-life.life.setAllVisible(true);
-renderer.compile(scene, camera);
+
+// Compile every shader the life will ever need up front, so nothing hitches when it first appears. Drawing (not just
+// compiling) the whole scene through the full pipeline also builds the variants made at draw time: shadow depth,
+// the AO normal pass, and the back-then-front pair of a blended two-sided surface. Each is drawn in every state the
+// timeline can put it in: with and without the lights that come and go with the life (the candle), and with things
+// fading (blended) as well as fully there (solid). The canvas is still invisible while this runs.
+function warmUp() {
+  const shown = []; // (everything drawn, wherever it stands right now)
+  scene.traverse((o) => { shown.push([o, o.visible, o.frustumCulled]); o.visible = true; o.frustumCulled = false; });
+  const lifeLights = [];
+  life.life.root.traverse((o) => { if (o.isLight) lifeLights.push(o); });
+  const fades = life.life.items.flatMap((it) => it.fadeMats.filter((m) => !m.isMeshDepthMaterial));
+  const leaves = [];
+  scene.traverse((o) => { if (o.isMesh && o.material.userData && o.material.userData.singlePass !== undefined) leaves.push(o.material); });
+  for (const lit of [false, true]) for (const whole of [false, true]) {
+    for (const l of lifeLights) l.visible = lit;
+    for (const m of fades) { m.transparent = !(whole && m.userData.solid); m.opacity = m.userData.baseOpacity * (whole ? 1 : 0.5); m.needsUpdate = true; }
+    for (const m of leaves) { m.forceSinglePass = whole && m.userData.singlePass; m.needsUpdate = true; }
+    renderer.shadowMap.needsUpdate = true;
+    post.composer.render(1 / 60);
+  }
+  for (const m of fades) { m.transparent = true; m.opacity = m.userData.baseOpacity; m.needsUpdate = true; }
+  for (const m of leaves) { m.forceSinglePass = false; m.needsUpdate = true; }
+  for (const [o, v, fc] of shown) { o.visible = v; o.frustumCulled = fc; }
+  renderer.shadowMap.needsUpdate = true;
+}
+warmUp();
+
+// A light that gives nothing this frame needs no new shadow map: its map only ever darkens its own (zero) light.
+// The moment it gives light again its map is redrawn first, so it is never seen out of date.
+const shadowLights = [];
+scene.traverse((o) => { if (o.isLight && o.castShadow) shadowLights.push(o); });
+function gateShadows() {
+  for (const l of shadowLights) {
+    const on = l.intensity > 0;
+    if (on && !l.shadow.autoUpdate) { l.shadow.needsUpdate = true; renderer.shadowMap.needsUpdate = true; }
+    l.shadow.autoUpdate = on;
+  }
+}
 
 // ------------------------------------------------------------------ sizing
 function resize() {
@@ -83,20 +120,8 @@ resize();
 // ------------------------------------------------------------------ scroll = time
 const hintEl = document.getElementById('hint');
 const maxScroll = () => document.documentElement.scrollHeight - innerHeight;
-// Scroll is not linear in years: time slows around the moments worth seeing (arrival -> hold -> departure).
-const WARP = (() => {
-  const N = 13000, A = new Float64Array(N + 1), Cm = new Float64Array(N + 1);
-  const box = (a, a0, a1) => { const e = 0.12; const t0 = clamp((a - (a0 - e)) / e, 0, 1), t1 = clamp(((a1 + e) - a) / e, 0, 1); return Math.min(t0 * t0 * (3 - 2 * t0), t1 * t1 * (3 - 2 * t1)); };
-  let c = 0;
-  for (let i = 0; i <= N; i++) {
-    const a = AGE0 + (AGE1 - AGE0) * (i / N);
-    let d = 1; for (const [a0, a1, w] of BEATS) if (a > a0 - 0.2 && a < a1 + 0.2) d = Math.max(d, 1 + w * box(a, a0, a1));
-    if (i) c += d * (AGE1 - AGE0) / N;
-    A[i] = a; Cm[i] = c;
-  }
-  return { total: c, toAge(p) { const t = p * c; let lo = 0, hi = N; while (hi - lo > 1) { const m = (lo + hi) >> 1; (Cm[m] < t ? (lo = m) : (hi = m)); } const f = (t - Cm[lo]) / Math.max(1e-9, Cm[hi] - Cm[lo]); return A[lo] + (A[hi] - A[lo]) * f; },
-    toP(a) { const i = clamp(Math.round(((a - AGE0) / (AGE1 - AGE0)) * N), 0, N); return Cm[i] / c; } };
-})();
+// Scroll is not linear in years (pace.js): time slows around the moments worth seeing.
+const WARP = PACE;
 document.getElementById('scroll').style.height = Math.round(5400 * WARP.total / (AGE1 - AGE0)) + 'vh';
 const ageFromScroll = () => WARP.toAge(clamp(scrollY / Math.max(1, maxScroll()), 0, 1));
 
@@ -114,8 +139,21 @@ addEventListener('scroll', () => {
 }, { passive: true });
 
 // debug / screenshot hook
-window.__scene = scene; window.__post = post; window.__THREE = THREE; window.__renderer = renderer;
+window.__scene = scene; window.__life = life.life; window.__post = post; window.__THREE = THREE; window.__renderer = renderer;
 window.__time = { setAge(a) { target = age = clamp(a, AGE0, AGE1); scrollTo(0, WARP.toP(age) * maxScroll()); }, get age() { return age; } };
+const music = makeMusic(PACE); window.__music = music;
+
+// the end: once the life is over, the empty room is held, then fades to black while the rest of the music plays out
+const blackEl = document.getElementById('black');
+const END_HOLD = 2.5, END_FADE = 5; // seconds after reaching 90
+let endSince = null, black = 0;
+function endFade(dt) {
+  const atEnd = age >= AGE1 - 1e-3;
+  endSince = atEnd ? (endSince ?? performance.now()) : null;
+  const want = atEnd ? smooth(END_HOLD, END_HOLD + END_FADE, (performance.now() - endSince) / 1000) : 0;
+  black = want >= black ? want : Math.max(want, black - dt / 0.8); // scrolled back: into the room again, quickly
+  blackEl.style.opacity = black.toFixed(3);
+}
 
 // ------------------------------------------------------------------ loop
 const clock = new THREE.Clock();
@@ -125,6 +163,8 @@ function step(dt, t) {
   const prev = age;
   age += (target - age) * (1 - Math.exp(-dt * 5.5));
   if (Math.abs(target - age) < 1e-4) age = target;
+  music.update(age);
+  endFade(dt);
   const vel = Math.abs(age - prev) / Math.max(dt, 1e-3); // years per second
 
   // temporal smear: only when scrubbing years quickly; vanishes at rest
@@ -133,10 +173,17 @@ function step(dt, t) {
   if (want === 0 && smear < 0.015) smear = 0;
   post.smear.amount = smear;
 
+  // the life, the light and the room's ageing are functions of age alone: recomputed only when the age has moved.
+  // What moves with the clock (curtains, the plant's sway, the candle, water and sky) is updated every frame.
+  const still = age === shownAge;
+  shownAge = age;
   ctx.ageU.value = encAge(age) / 255;
   room.update(age, t);
-  life.update(age, t, vel);
-  applyDaylight(resolve(todLayers(age)), ctx, exterior, renderer, scene);
+  life.update(age, t, vel, still);
+  if (!still) {
+    applyDaylight(resolve(todLayers(age)), ctx, exterior, renderer, scene);
+    gateShadows();
+  }
   exterior.update(age, t, camera.position);
 
 
@@ -154,22 +201,48 @@ function adapt(dt) {
   else if (avg < 0.0135 && pr < PR_MAX) next = Math.min(PR_MAX, pr + 0.1);
   if (next !== pr) { pr = next; renderer.setPixelRatio(pr); resize(); }
 }
-let frameNo = 0;
-function frame() {
-  const dt = Math.min(clock.getDelta(), 0.1);
-  // shadows refresh at half rate unless time is moving
-  frameNo++;
-  renderer.shadowMap.needsUpdate = frameNo % 2 === 0 || Math.abs(target - age) > 1e-4;
-  step(dt, clock.elapsedTime);
-  if (!document.hidden) adapt(dt);
+// At most 60 frames a second, also on 120 Hz displays: a frame is drawn only once ~1/60 s has passed since the last.
+// The time step is measured between drawn frames, so scrolling, easing and every animation keep their speed; the
+// resolution adapter still sees the display's own cadence, exactly as before.
+// Active / idle: while the timeline moves (or was just touched) frames come at the 60 fps cap. Once the age has
+// settled, nothing is smeared and no input has come for a moment, the room rests at ~20 fps: only the curtains, the
+// plant, the candle, water and sky still move, and they move by the clock, at the same speed either way. Any scroll
+// or input wakes it at once: the very next display frame is drawn at full rate.
+const MIN_FRAME_MS = 1000 / 60 - 3;
+const IDLE_FRAME_MS = 1000 / 20 - 3;
+const IDLE_AFTER_MS = 600; // quiet time after the last input before resting
+let frameNo = 0, lastDrawn = -Infinity, lastCall = null, lastInput = -Infinity, wasIdle = false;
+const wake = () => { lastInput = performance.now(); };
+for (const ev of ['scroll', 'wheel', 'touchstart', 'touchmove', 'keydown', 'pointerdown', 'resize']) addEventListener(ev, wake, { passive: true });
+function frame(now) {
   requestAnimationFrame(frame);
+  const callDt = lastCall === null ? 1 / 60 : Math.min((now - lastCall) / 1000, 0.1);
+  lastCall = now;
+  const idle = age === target && smear === 0 && now - lastInput > IDLE_AFTER_MS;
+  if (now - lastDrawn >= (idle ? IDLE_FRAME_MS : MIN_FRAME_MS)) {
+    lastDrawn = now;
+    let dt = Math.min(clock.getDelta(), 0.1);
+    // waking: the scroll easing starts from this frame, as if frames had never slowed (the clock-driven motion
+    // reads elapsed time, not dt, so it is unaffected)
+    if (wasIdle && !idle) dt = Math.min(dt, 1 / 60);
+    wasIdle = idle;
+    // shadows refresh at half rate unless time is moving; at rest, with every (fewer) frame, so the curtains' moving
+    // shadows stay as fresh as the frames that show them
+    frameNo++;
+    renderer.shadowMap.needsUpdate = idle || frameNo % 2 === 0 || Math.abs(target - age) > 1e-4;
+    step(dt, clock.elapsedTime);
+  }
+  if (!document.hidden) adapt(callDt);
 }
 requestAnimationFrame(frame);
 // render synchronously (for capture when the tab is hidden)
+// (dev) __time.pinT = seconds pins the animation clock, so two captures of the same age are pixel-comparable
+window.__time.pinT = null;
+const devT = () => window.__time.pinT ?? clock.elapsedTime + manualT;
 window.__time.render = (n = 1, settle = true) => {
   renderer.shadowMap.needsUpdate = true;
-  for (let i = 0; i < n; i++) { manualT += 1 / 60; step(1 / 60, clock.elapsedTime + manualT); }
-  if (settle) { age = target; renderer.shadowMap.needsUpdate = true; step(1 / 60, clock.elapsedTime + manualT); }
+  for (let i = 0; i < n; i++) { manualT += 1 / 60; step(1 / 60, devT()); }
+  if (settle) { age = target; renderer.shadowMap.needsUpdate = true; step(1 / 60, devT()); }
   return age;
 };
 window.__time.shot = (a) => {

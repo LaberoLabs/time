@@ -379,6 +379,74 @@ export function shoes(kind = 'sneaker', color = '#efeae2', size = 1) {
   return g;
 }
 
+// a shoe last: outline by width(w), sole line by foot(w), upper height by top(w); w runs heel (0) -> toe (1)
+function lastGeo(L, width, foot, top) {
+  const g = new THREE.BoxGeometry(1, 1, 1, 12, 5, 28);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const u = p.getX(i) + 0.5, v = p.getY(i) + 0.5, w = p.getZ(i) + 0.5;
+    const round = Math.sqrt(Math.max(0, 1 - Math.pow((u - 0.5) * 2, 4)));
+    p.setXYZ(i, (u - 0.5) * width(w), foot(w) + v * top(w) * (0.5 + 0.5 * round), (w - 0.5) * L);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+const ramp = (a, b, x) => Math.min(1, Math.max(0, (x - a) / (b - a)));
+// his: brown leather derbies with a darker sole, a low heel and laces
+export function leatherShoes(color = '#6b4226') {
+  const g = G();
+  const L = 0.285, W = 0.102;
+  const width = (w) => W * (0.74 + 0.26 * Math.sin(Math.PI * Math.min(1, w * 1.12))) * (w > 0.8 ? Math.sqrt(Math.max(0, 1 - Math.pow((w - 0.8) / 0.21, 2))) * 0.8 + 0.2 : 1);
+  const top = (w) => (w < 0.28 ? 0.074 : w < 0.62 ? 0.074 - (w - 0.28) * 0.08 : 0.047 - (w - 0.62) * 0.05);
+  const up = std(color, 0.38, { bumpMap: linenBump(15), bumpScale: 0.05 });
+  const soleM = std('#2e1f16', 0.7), lining = std('#2a1e16', 0.9), lace = std('#3a2618', 0.7);
+  const upper = lastGeo(L, width, () => 0.016, top);
+  const soleGeo = lastGeo(L + 0.008, (w) => width(w) + 0.006, () => 0, () => 0.016);
+  for (const s of [-1, 1]) {
+    const sh = G();
+    sh.add(mesh(upper, up));
+    sh.add(mesh(soleGeo, soleM));
+    sh.add(mesh(rbox(width(0.12) + 0.004, 0.014, 0.07, 0.005), soleM, 0, 0.007, -L / 2 + 0.04)); // heel block
+    const open = mesh(new THREE.CircleGeometry(0.029, 18).rotateX(-Math.PI / 2), lining, 0, 0.0905, -0.085);
+    open.scale.set(1, 1, 1.45); sh.add(open);
+    for (let k = 0; k < 3; k++) { // laces across the instep
+      const l = mesh(new THREE.BoxGeometry(0.034, 0.003, 0.006), lace, 0, 0.0828 - k * 0.0049, -0.03 + k * 0.022);
+      l.rotation.x = -0.26; sh.add(l);
+    }
+    sh.position.x = s * 0.062; sh.rotation.y = s * 0.03; sh.position.z = s > 0 ? 0.025 : 0;
+    g.add(sh);
+  }
+  shade(g); g.add(contact(0.34, 0.4, 0.55));
+  return g;
+}
+// hers: court shoes on a slim heel, the insole showing
+export function heels(color = '#2b2424') {
+  const g = G();
+  const L = 0.235, W = 0.076, H = 0.072;
+  const foot = (w) => H * (1 - (3 - 2 * ramp(0.16, 0.72, w)) * ramp(0.16, 0.72, w) ** 2);
+  const width = (w) => W * (0.68 + 0.32 * Math.sin(Math.PI * Math.min(1, w * 1.1))) * (w > 0.74 ? Math.max(0.12, 1 - Math.pow((w - 0.74) / 0.27, 1.6)) : 1);
+  const top = (w) => (w < 0.14 ? 0.042 : w < 0.24 ? 0.042 - (w - 0.14) * 0.3 : w < 0.56 ? 0.012 : w < 0.72 ? 0.012 + (w - 0.56) * 0.16 : 0.0376 - (w - 0.72) * 0.06);
+  const leather = std(color, 0.3, { envMapIntensity: 1.2 });
+  const insole = std('#c9ab88', 0.75);
+  const shell = lastGeo(L, width, foot, top);
+  // the inside of the shoe: a thin sole-shaped strip just above the footbed, between the heel cup and the toe box
+  const inside = lastGeo(L * 0.5, (w) => width(0.1 + w * 0.5) * 0.8, (w) => foot(0.1 + w * 0.5) + 0.0125, () => 0.0006);
+  inside.translate(0, 0, -L * 0.15);
+  for (const s of [-1, 1]) {
+    const sh = G();
+    sh.add(mesh(shell, leather));
+    sh.add(mesh(inside, insole));
+    const heel = mesh(new THREE.CylinderGeometry(0.009, 0.005, H, 12), leather, 0, H / 2, -L / 2 + 0.022);
+    sh.add(heel);
+    sh.add(mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.004, 10), std('#141010', 0.6), 0, 0.002, -L / 2 + 0.022));
+    // stepped out of: one stands straight, the other has turned onto its side view, so the heel shows
+    if (s < 0) { sh.position.x = -0.075; sh.rotation.y = -0.05; } else { sh.position.set(0.03, 0, 0.045); sh.rotation.y = 0.62; }
+    g.add(sh);
+  }
+  shade(g); g.add(contact(0.28, 0.34, 0.5));
+  return g;
+}
+
 // ------------------------------------------------------------------ toys
 export function blocks(seed = 1) {
   const g = G(); const r = rng(seed);
@@ -682,17 +750,31 @@ export function sketchbook() {
   shade(g); return g;
 }
 export function cake(candles = 1) {
-  const g = plate('#efe9df', 0.12);
-  g.add(mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.06, 32), std('#efe0c8', 0.7), 0, 0.04, 0));
-  g.add(mesh(new THREE.CylinderGeometry(0.087, 0.087, 0.012, 32), std('#d8664a', 0.6), 0, 0.072, 0));
-  const fl = new THREE.MeshBasicMaterial({ color: C('#ffcc80').multiplyScalar(12) });
-  for (let i = 0; i < candles; i++) {
-    const a = (i / candles) * Math.PI * 2, rr = candles === 1 ? 0 : 0.045;
-    const cx = Math.cos(a) * rr, cz = Math.sin(a) * rr;
-    g.add(mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.035, 6), std(['#3f8fd0', '#f2b437', '#e86fa0', '#5bb35a'][i % 4], 0.5), cx, 0.095, cz));
-    const f = mesh(new THREE.SphereGeometry(0.003, 8, 6), fl, cx, 0.117, cz); f.scale.y = 2.2; g.add(f);
+  // a proper birthday cake on a stand: white icing, a piped rim, berries, candles
+  const g = G();
+  const china = std('#f1ece3', 0.35);
+  g.add(mesh(lathe([[0, 0], [0.06, 0], [0.062, 0.006], [0.02, 0.016], [0.014, 0.05], [0.03, 0.058], [0.125, 0.062], [0.127, 0.068], [0, 0.068]], 40), china));
+  const y0 = 0.068, R = 0.095, H = 0.088;
+  const icing = std('#f7f1e8', 0.55);
+  g.add(mesh(new THREE.CylinderGeometry(R, R * 1.01, H, 40), icing, 0, y0 + H / 2, 0));
+  g.add(mesh(new THREE.CylinderGeometry(R * 1.012, R * 1.012, 0.012, 40, 1, true), std('#e9b7b0', 0.6, { side: THREE.DoubleSide }), 0, y0 + 0.016, 0));
+  const bead = new THREE.SphereGeometry(0.009, 10, 8);
+  for (let i = 0; i < 22; i++) { const a = (i / 22) * Math.PI * 2; g.add(mesh(bead, icing, Math.cos(a) * (R - 0.006), y0 + H + 0.003, Math.sin(a) * (R - 0.006))); }
+  const berry = std('#b8202c', 0.35), leafM = std('#4f7a3a', 0.6);
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2 + 0.2;
+    const b = mesh(new THREE.SphereGeometry(0.013, 12, 10), berry, Math.cos(a) * 0.058, y0 + H + 0.009, Math.sin(a) * 0.058); b.scale.y = 1.2; g.add(b);
+    g.add(mesh(new THREE.ConeGeometry(0.008, 0.005, 5), leafM, Math.cos(a) * 0.058, y0 + H + 0.024, Math.sin(a) * 0.058));
   }
-  shade(g); return g;
+  const fl = new THREE.MeshBasicMaterial({ color: C('#ffcc80').multiplyScalar(14) });
+  for (let i = 0; i < candles; i++) {
+    const a = (i / candles) * Math.PI * 2, rr = candles === 1 ? 0 : 0.03;
+    const cx = Math.cos(a) * rr, cz = Math.sin(a) * rr;
+    g.add(mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.055, 8), std(['#3f8fd0', '#f2b437', '#e86fa0', '#5bb35a'][i % 4], 0.5), cx, y0 + H + 0.0275, cz));
+    const f = mesh(new THREE.SphereGeometry(0.0045, 8, 6), fl, cx, y0 + H + 0.064, cz); f.scale.y = 2.3; g.add(f);
+  }
+  shade(g); g.add(contact(0.3, 0.3, 0.5));
+  return g;
 }
 export function suitcase(color = '#7f8e99') {
   // packed and standing by, closed
@@ -706,15 +788,64 @@ export function suitcase(color = '#7f8e99') {
   return g;
 }
 export function paintJob() {
+  // the repaint, waiting on a drop cloth: an open tin with a drip and its lid, a roller in its tray, the stirring stick, tape
   const g = G();
-  const sheet = mesh(new THREE.PlaneGeometry(0.7, 0.5, 8, 6).rotateX(-Math.PI / 2), std('#d9d4ca', 0.95, { side: THREE.DoubleSide }), 0, 0.003, 0);
-  const sp = sheet.geometry.attributes.position;
-  for (let i = 0; i < sp.count; i++) sp.setY(i, Math.max(0, Math.sin(sp.getX(i) * 13 + sp.getZ(i) * 7) * 0.006));
-  sheet.geometry.computeVertexNormals(); sheet.receiveShadow = true; g.add(sheet);
-  g.add(mesh(lathe([[0, 0], [0.09, 0], [0.09, 0.17], [0.092, 0.175], [0, 0.175]], 32), std('#c9ccd0', 0.35, { metalness: 0.7 }), 0.12, 0.003, 0.05));
-  g.add(mesh(new THREE.CircleGeometry(0.085, 24).rotateX(-Math.PI / 2), std('#e6dfd6', 0.5), 0.12, 0.18, 0.05));
-  const br = mesh(rbox(0.05, 0.012, 0.2, 0.004), std('#8a6a4a', 0.6), -0.14, 0.01, -0.05); br.rotation.y = 0.6; g.add(br);
-  shade(g); return g;
+  const paint = '#ece6de';
+  // drop cloth: canvas, rumpled, with a turned-back corner and a few old spatters
+  const [cc, cx] = canvas(512, 384);
+  cx.fillStyle = '#e2dace'; cx.fillRect(0, 0, 512, 384);
+  const rr = rng(57);
+  for (let i = 0; i < 2600; i++) { cx.fillStyle = `rgba(${150 + rr() * 60},${140 + rr() * 50},${120 + rr() * 40},0.08)`; cx.fillRect(rr() * 512, rr() * 384, 1 + rr() * 3, 1); }
+  for (let i = 0; i < 26; i++) {
+    cx.fillStyle = ['#c8b8a0', '#a9b4ae', '#ece6de', '#d8c9b4'][i % 4];
+    cx.beginPath(); cx.arc(rr() * 512, rr() * 384, 1 + rr() * 5, 0, 7); cx.fill();
+  }
+  const sheetG = new THREE.PlaneGeometry(0.7, 0.5, 36, 26).rotateX(-Math.PI / 2);
+  const sp = sheetG.attributes.position;
+  for (let i = 0; i < sp.count; i++) {
+    const x = sp.getX(i), z = sp.getZ(i);
+    let y = 0.004 + Math.max(0, Math.sin(x * 11 + z * 5) * 0.007 + Math.sin(x * 23 - z * 17 + 1.2) * 0.003);
+    const corner = Math.max(0, (x - 0.22) + (z - 0.12)); // front right corner turned back over itself
+    if (corner > 0) { y += Math.min(corner, 0.07) * 0.18 + Math.sin(Math.min(1, corner / 0.1) * Math.PI) * 0.012; }
+    sp.setY(i, y);
+  }
+  sheetG.computeVertexNormals();
+  const sheet = mesh(sheetG, std('#ffffff', 0.97, { map: toTex(cc), side: THREE.DoubleSide, bumpMap: linenBump(23), bumpScale: 0.5 }));
+  sheet.receiveShadow = true; g.add(sheet);
+  // the tin: rim, paper label, wire handle, the paint inside and a run down the side
+  const tx = 0.13, tz = 0.06;
+  const metal = std('#c3c6ca', 0.32, { metalness: 0.75 });
+  const tin = G(); tin.position.set(tx, 0.005, tz); g.add(tin);
+  tin.add(mesh(lathe([[0, 0], [0.083, 0], [0.085, 0.004], [0.085, 0.158], [0.088, 0.162], [0.088, 0.168], [0.08, 0.168], [0.08, 0.16], [0, 0.16]], 40), metal));
+  const [lc, lx] = canvas(256, 64);
+  lx.fillStyle = '#f2efe8'; lx.fillRect(0, 0, 256, 64); lx.fillStyle = paint; lx.fillRect(0, 0, 256, 22);
+  lx.fillStyle = '#5a6670'; lx.fillRect(18, 34, 90, 6); lx.fillRect(18, 46, 60, 4);
+  tin.add(mesh(new THREE.CylinderGeometry(0.0858, 0.0858, 0.1, 40, 1, true), std('#ffffff', 0.7, { map: toTex(lc) }), 0, 0.075, 0));
+  tin.add(mesh(new THREE.CircleGeometry(0.08, 32).rotateX(-Math.PI / 2), std(paint, 0.22), 0, 0.152, 0));
+  const drip = mesh(new THREE.CapsuleGeometry(0.006, 0.05, 4, 8), std(paint, 0.25), 0.083, 0.13, 0.028); drip.scale.z = 0.5; tin.add(drip);
+  const handle = mesh(new THREE.TorusGeometry(0.086, 0.0025, 6, 28, Math.PI), std('#9ea2a6', 0.35, { metalness: 0.8 }), 0, 0.15, 0);
+  handle.rotation.set(0, 0.6, -1.25); tin.add(handle);
+  // its lid, face up beside it, paint on the underside ring
+  const lid = mesh(lathe([[0, 0.006], [0.084, 0.006], [0.088, 0.002], [0.088, 0], [0, 0]], 32), metal, 0.25, 0.006, -0.15); g.add(lid);
+  g.add(mesh(new THREE.RingGeometry(0.066, 0.08, 32).rotateX(-Math.PI / 2), std(paint, 0.25), 0.25, 0.0135, -0.15));
+  // roller tray with a pool of paint, the roller resting in it
+  const tray = G(); tray.position.set(-0.17, 0.006, 0.06); tray.rotation.y = -0.25; g.add(tray);
+  const plastic = std('#3a3f45', 0.55);
+  tray.add(mesh(rbox(0.2, 0.006, 0.3, 0.003), plastic, 0, 0.003, 0));
+  for (const sx of [-1, 1]) tray.add(mesh(rbox(0.006, 0.035, 0.3, 0.002), plastic, sx * 0.097, 0.0175, 0));
+  tray.add(mesh(rbox(0.2, 0.035, 0.006, 0.002), plastic, 0, 0.0175, -0.147));
+  tray.add(mesh(new THREE.PlaneGeometry(0.18, 0.12).rotateX(-Math.PI / 2), std(paint, 0.2), 0, 0.016, -0.08));
+  const nap = std('#efe9df', 0.95, { bumpMap: linenBump(31), bumpScale: 0.8 });
+  const roller = mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.16, 20), nap, 0, 0.03, 0.06); roller.rotation.z = Math.PI / 2; tray.add(roller);
+  tray.add(mesh(tube([[0.085, 0.03, 0.06], [0.1, 0.03, 0.06], [0.1, 0.05, 0.12], [0.1, 0.06, 0.2]], 0.0035, 12, 6), std('#a8aaad', 0.3, { metalness: 0.8 })));
+  const grip = mesh(new THREE.CylinderGeometry(0.012, 0.011, 0.11, 12), std('#c9442e', 0.5), 0.1, 0.063, 0.25); grip.rotation.x = Math.PI / 2 - 0.12; tray.add(grip);
+  // the stirring stick, paint on its end; a roll of tape
+  const stick = G(); stick.position.set(0.04, 0.012, 0.15); stick.rotation.y = 0.9; g.add(stick);
+  stick.add(mesh(rbox(0.025, 0.006, 0.26, 0.002), std('#c9a777', 0.7), 0, 0, 0));
+  stick.add(mesh(rbox(0.0265, 0.0075, 0.09, 0.003), std(paint, 0.25), 0, 0, 0.088));
+  const tape = mesh(new THREE.TorusGeometry(0.035, 0.012, 10, 24), std('#5a8fd0', 0.6), 0.27, 0.016, -0.17); tape.rotation.x = Math.PI / 2; tape.scale.z = 1.3; g.add(tape);
+  shade(g); sheet.castShadow = false;
+  return g;
 }
 export function napkin(color = '#e9e2d4', seed = 1) {
   const g = G();
@@ -939,7 +1070,6 @@ export function babyThings() {
 }
 export function kidCup() { const g = G(); g.add(mesh(lathe([[0, 0], [0.028, 0], [0.032, 0.07], [0, 0.07]], 20), std('#5bb35a', 0.4))); shade(g); g.add(contact(0.08, 0.08, 0.3, 0.001)); return g; }
 export function phone() { const g = G(); g.add(mesh(rbox(0.072, 0.008, 0.148, 0.008, 2), std('#1d1d20', 0.25, { metalness: 0.3 }), 0, 0.004, 0)); shade(g); return g; }
-export function speaker() { const g = G(); g.add(mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.12, 28), fabric('#6a6a6e', { bumpMap: linenBump(95), bumpScale: 0.6 }), 0, 0.06, 0)); shade(g); return g; }
 export function sailboatModel() {
   const g = G(); const w = std('#8a5a3a', 0.5);
   const hull = mesh(new THREE.CapsuleGeometry(0.018, 0.13, 4, 10), w, 0, 0.045, 0); hull.rotation.z = Math.PI / 2; hull.scale.set(1, 1, 0.8); g.add(hull);

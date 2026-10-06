@@ -12,6 +12,7 @@ import { heroPlant, ivy, olive } from './plants.js';
 import { std, mesh, C } from './build.js';
 import { inkPrint, abstractPrint, photoTexture, childDrawing, rugTexture2, BOOK_COLORS, KID_BOOK_COLORS, canvas, toTex } from './tex.js';
 import { rng, smooth, keys, clamp, lerp, noise1, iv, union, subtract, presence } from './util.js';
+import { makePace } from './pace.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 // the grown child, coming home: short stays, more often after 77
@@ -38,7 +39,7 @@ sc(29.7, 30.0, 'dusk', 'dinner2');                            // a cooked dinner
 sc(31.5, 31.82, 'night', 'friendsYoung'); sc(31.88, 32.08, 'dawn', 'friendsYoungAfter');
 sc(32.95, 33.2, 'morning', 'pregnant');
 sc(33.3, 33.65, 'day', 'babyprep');
-BIRTHDAYS.forEach((b, k) => sc(b, b + 0.32, 'day', 'birthday', { k, w: 5 }));
+BIRTHDAYS.forEach((b, k) => sc(b, b + 0.32, 'day', 'birthday', { k, w: 7 })); // time slows a little more here: the cake should be seen
 sc(38.3, 38.55, 'golden', 'familyDinner');
 sc(40.2, 40.5, 'morning', 'familyBreakfast');
 sc(48.9, 49.15, 'night', 'teenTakeaway');
@@ -53,32 +54,55 @@ sc(73.15, 73.45, 'golden', 'lastEvening');
 sc(75.3, 75.55, 'dusk', 'supperAlone'); sc(82.3, 82.55, 'dusk', 'supperAlone');
 VPOST.forEach(([a, b]) => sc(a, b, 'day', 'teaVisit', { w: 3 }));
 sc(86.6, 86.85, 'night', 'nightAlone', { keep: true });
-sc(89.35, 89.75, 'dusk', 'end', { table: false, w: 6 }); sc(89.8, 90.6, 'night', 'end', { table: false, w: 6 });
+sc(89.35, 89.75, 'dusk', 'end', { table: false, w: 3.5 }); sc(89.8, 90.6, 'night', 'end', { table: false, w: 3.5 });
 SCENES.sort((x, y) => x.a - y.a);
-const win = (kind) => SCENES.filter((s) => s.kind === kind).map((s) => [s.a, s.b, 0.05, 0.05]);
-// an evening and its morning after as one unbroken stretch, for things that stay on the table all night
-const chain = (k1, k2) => SCENES.filter((s) => s.kind === k1).map((s) => {
-  const t = SCENES.find((u) => u.kind === k2 && u.a >= s.b && u.a - s.b < 0.2);
-  return [s.a, t ? t.b : s.b, 0.05, 0.05];
-});
-const TABLE_HOLES = SCENES.filter((s) => s.table && !s.keep).map((s) => [s.a - 0.04, s.b + 0.08]);
-const ALL_TABLE = SCENES.filter((s) => s.table).map((s) => [s.a - 0.04, s.b + 0.08]);
-// everyday things on the table, put aside whenever the table is used for something else
-const daily = (list, holes = TABLE_HOLES) => subtract(iv(list), holes);
 // moments where time should slow so they can be seen (consumed by main.js scroll mapping)
 // stretches where nothing happens but time should still be felt: the first year alone, and the last quiet years
-const STILL = [[73.5, 75.2, 3], [79.0, 81.5, 1.6], [85.0, 89.3, 1.4]];
+const STILL = [[73.5, 75.2, 3], [79.0, 81.5, 1.6], [85.0, 89.3, 0.6]];
 export const BEATS = [...SCENES.map((s) => [s.a, s.b, s.w]), ...STILL];
+export const PACE = makePace(BEATS);
+
+// ---------------------------------------------------------------- transitions, measured in scroll distance (vh)
+// A change is given a width in scroll, not in years, so it reads equally gently wherever time is slowed.
+const EDGE = 40;    // a scene's things arriving or leaving
+const ROUTINE = 45; // everyday things coming into or going out of use
+const edge = (s) => Math.min(EDGE, 0.3 * PACE.vh(s.a, s.b)); // short moments keep a readable middle
+// a fade centred on age h, w vh wide -> [start, duration]
+const around = (h, w) => { const a = PACE.shift(h, -w / 2); return [a, PACE.shift(h, w / 2) - a]; };
+const sceneSpan = (s, t = s) => { const [a, fi] = around(s.a, edge(s)), [b, fo] = around(t.b, edge(t)); return [a, b, fi, fo]; };
+const win = (kind) => SCENES.filter((s) => s.kind === kind).map((s) => sceneSpan(s));
+// an evening and its morning after as one unbroken stretch, for things that stay on the table all night
+const after = (s, k2) => SCENES.find((u) => u.kind === k2 && u.a >= s.b && u.a - s.b < 0.2);
+const chain = (k1, k2) => SCENES.filter((s) => s.kind === k1).map((s) => sceneSpan(s, after(s, k2) || s));
+// the everyday table is put aside for a scene: it leaves across the scene's arriving edge and returns across its
+// leaving edge, so one arrangement hands over to the other. Scenes close together (an evening and its morning
+// after) share one gap, so the everyday things never flicker back in between.
+const holes = (list) => {
+  const runs = [];
+  for (const s of list) { const r = runs[runs.length - 1]; if (r && PACE.vh(r.t.b, s.a) < 2 * EDGE) r.t = s; else runs.push({ s, t: s }); }
+  return runs.map(({ s, t }) => { const [h0, f0] = around(s.a, edge(s)), [h1, f1] = around(t.b, edge(t)); return [h0, h1, f0, f1]; });
+};
+const TABLE_HOLES = holes(SCENES.filter((s) => s.table && !s.keep));
+const ALL_TABLE = holes(SCENES.filter((s) => s.table));
+// everyday things on the table come into and go out of use gently, and are put aside whenever the table is used for something else
+const routine = (list) => list.map(([a, b]) => [a, b, Number.isFinite(a) ? PACE.shift(a, ROUTINE) - a : 0, Number.isFinite(b) ? PACE.shift(b, ROUTINE) - b : 0]);
+// (a sliver left between a scene and the routine's own start or end would only half-appear and go again: it is dropped)
+const daily = (list, h = TABLE_HOLES) => subtract(routine(list), h).filter(([a, b, fi]) => !(Number.isFinite(a) && Number.isFinite(b)) || b > a + fi + 0.02);
+// one-off things (boxes, the paint, a suitcase): there from a to b, arriving and leaving across centred edges
+const stay = (a, b, w = EDGE) => { const [a0, fi] = around(a, w), [b0, fo] = around(b, w); return [[a0, b0, fi, fo]]; };
 // the light each moment happens in
 export function todLayers(age) {
   const out = [];
   for (const s of SCENES) { if (age < s.a - 0.12 || age > s.b + 0.12) continue; out.push([s.tod, presence(age, s.a - 0.08, s.b + 0.02, 0.08, 0.08)]); }
   return out;
 }
-const VISITS_SHOES = [[36.1, 52.4, 0.4, 0.4], ...VPRE.map(([a, b]) => [a, b, 0.1, 0.1])];
+const LATE = SCENES.filter((s) => /After$/.test(s.kind)).map((s) => sceneSpan(s));
+// presence of a span, eased in scroll distance exactly as the life objects are
+const eased = (age, [a, b, fi, fo]) => { const U = PACE.units; return presence(U(age), U(a), U(b), U(a + fi) - U(a), U(b + fo) - U(b)); };
+const VISITS_SHOES = [[36.1, 52.4, 0.4, 0.4], ...SCENES.filter((s) => s.kind === 'lunch' || s.kind === 'teaVisit').map((s) => sceneSpan(s))]; // every visit, before and after the loss
 
 export function buildLife(scene, ctx) {
-  const life = new Life(scene);
+  const life = new Life(scene, PACE);
   const add = (obj, x, y, z, o = {}) => { obj.position.set(x, y, z); if (o.ry !== undefined) obj.rotation.y = o.ry; return life.add(obj, o); };
   const T = TABLE, ty = T.y;
   const extras = []; // custom per-frame updaters
@@ -89,7 +113,7 @@ export function buildLife(scene, ctx) {
     wob: { p: 0.05, r: 0.12, f: 1.1, seed: 11 },
   });
   const chairB = add(O.chairLadder(), T.x - 1.16, 0, T.z + 0.04, {
-    spans: [...SCENES.filter((s) => s.kind === 'date').map((s) => [s.a - 0.04, s.b + 0.02, 0.06, 0.06]), [28.15, Infinity, 0.5, 0.4]], ry: Math.PI / 2 - 0.1, settle: [-0.25, 0, 0.1],
+    spans: [...win('date'), [28.15, Infinity, 0.5, 0.4]], ry: Math.PI / 2 - 0.1, settle: [-0.25, 0, 0.1],
     wob: { p: 0.06, r: 0.14, f: 1.0, seed: 23, until: LOSS },
   });
   const kc = O.kidChair();
@@ -108,10 +132,10 @@ export function buildLife(scene, ctx) {
   });
 
   // ================================================================ coats (draped over chair backs) and bags
-  const coat1 = add(O.garment('#8a5a3a', { seed: 1 }), 0, 0.95, -0.21, { follow: chairA, out: 59.6, fo: 0.3, settle: [0, 0.05, 0] });
-  add(O.garment('#4f5a66', { seed: 6, back: 0.42 }), 0, 0.95, -0.21, { follow: chairA, in: 60.0, fi: 0.3, out: END, fo: 0.25, settle: [0, 0.05, 0] }); // the coat, replaced
+  const coat1 = add(O.garment('#8a5a3a', { seed: 1 }), 0, 0.95, -0.21, { follow: chairA, out: 59.6, fo: 0.4, settle: [0, 0.05, 0] }); // taken off the chair before the new one is hung there
+  add(O.garment('#4f5a66', { seed: 6, back: 0.42 }), 0, 0.95, -0.21, { follow: chairA, in: 60.0, fi: 0.45, out: END, fo: 0.25, settle: [0, 0.05, 0] }); // the coat, replaced
   const scarf = add(O.garment('#b5523b', { w: 0.17, r: 0.092, front: 0.2, back: 0.3, knit: true, sleeves: false, bulge: 0.004, seed: 4 }), 0.05, 0.95, -0.21, { follow: chairA, in: 30.6, out: END, fo: 0.25, settle: [0, 0.04, 0] });
-  const coat2 = add(O.garment('#b7a48a', { seed: 2, knit: true, back: 0.34, front: 0.12, lean: 0, r: 0.05 }), 0, 0.935, -0.185, { follow: chairB, spans: [...SCENES.filter((s) => s.kind === 'date').map((s) => [s.a, s.b, 0.05, 0.05]), [28.3, LOSS + 1.2, 0.4, 0.3]], settle: [0, 0.05, 0] });
+  const coat2 = add(O.garment('#b7a48a', { seed: 2, knit: true, back: 0.34, front: 0.12, lean: 0, r: 0.05 }), 0, 0.935, -0.185, { follow: chairB, spans: [...win('date'), [28.3, LOSS + 1.2, 0.4, 0.3]], settle: [0, 0.05, 0] });
   // it stays a little after the boots have gone, then is folded and left on their seat; put away years later
   add(O.foldedCloth('#b7a48a', 0.3, 0.24, 0.06, true, 9), 0, 0.48, 0.02, { follow: chairB, in: LOSS + 1.3, out: 80.0, fi: 0.25, fo: 0.4, settle: [0, 0.04, 0] });
   const kidCoat = add(O.garment('#d9a22a', { seed: 3, w: 0.32, back: 0.3, front: 0.11, r: 0.055, lean: 0.38 }), 0, 0.925, -0.175, { follow: kidChair, in: 38.8, out: 41.4, settle: [0, 0.05, 0] });
@@ -125,7 +149,7 @@ export function buildLife(scene, ctx) {
 
   // ---------- the things that stay: candle (lit from 29 until the very end) and flowers
   add(O.vaseStems('dried'), T.x + 0.68, ty, T.z - 0.24, { in: 28.4, out: 31.0 });
-  add(O.vaseStems('euc'), T.x + 0.74, ty, T.z - 0.33, { spans: subtract(iv([[42.1, 77.4]], 0.4, 0.5), chain('party', 'partyAfter').map(([a, b]) => [a - 0.06, b + 0.06])),
+  add(O.vaseStems('euc'), T.x + 0.74, ty, T.z - 0.33, { spans: subtract(routine([[42.1, 77.4]]), holes(SCENES.filter((s) => s.kind === 'party' || s.kind === 'partyAfter'))),
     update(age, p, o) { const d = smooth(LOSS + 1.5, 77.2, age); o.traverse((m) => { if (m.isMesh && m.material.name === 'leaf') m.material.color.set('#8fa38f').lerp(C('#9a8a62'), d); }); } });
   const cnd = O.candle();
   add(cnd, T.x + 0.02, ty, T.z + 0.02, {
@@ -235,7 +259,7 @@ export function buildLife(scene, ctx) {
   put(O.babyThings(), 0.28, 0.18, { spans: W('babyprep'), ry: 0.2 });
   // birthdays: cake at the child's place, tea for the parents, juice for the child
   SCENES.filter((s) => s.kind === 'birthday').forEach((s) => {
-    put(O.cake(s.k + 1), -0.15, 0.08, { in: s.a, out: s.b, fi: 0.06, fo: 0.06, settle: [0, 0.015, 0] });
+    put(O.cake(s.k + 1), -0.15, 0.08, { spans: [sceneSpan(s)], settle: [0, 0.015, 0] });
   });
   put(O.plate('#efe9df', 0.08), 0.15, -0.22, { spans: W('birthday') });
   put(O.plate('#efe9df', 0.08), -0.5, -0.05, { spans: W('birthday') });
@@ -292,11 +316,11 @@ export function buildLife(scene, ctx) {
   put(O.plateWith('roast', 0.13, 22), -0.25, 0.26, { spans: W('lunch'), ry: -0.4 });
   put(O.servingDish('saladBowl', 23), 0.22, 0.14, { spans: W('lunch') });
   put(O.waterGlass(0.6), 0.0, 0.36, { spans: W('lunch') });
-  put(O.kidCup(), -0.52, 0.34, { spans: SCENES.filter((s) => s.kind === 'lunch' && s.grand).map((s) => [s.a, s.b, 0.05, 0.05]) });
+  put(O.kidCup(), -0.52, 0.34, { spans: SCENES.filter((s) => s.kind === 'lunch' && s.grand).map((s) => sceneSpan(s)) });
   // quiet suppers for two in later years
   put(O.bowlWith('soup', 24), -0.15, -0.25, { spans: many('soup2', 'supperAlone') });
   put(O.bowlWith('soup', 25), -0.62, 0.0, { spans: W('soup2') });
-  put(O.servingDish('bread', 26), 0.25, 0.1, { spans: many('soup2', 'supperAlone') });
+  put(O.servingDish('bread', 26), 0.25, 0.1, { spans: W('soup2') });
   // an old couple's breakfast: a pot of tea
   put(O.teapot('#4f6a6a'), 0.2, 0.05, { spans: many('breakfastOld', 'teaVisit') });
   put(O.cupSaucer('#f1ece2', '#a8763a'), -0.15, -0.28, { spans: many('breakfastOld', 'breakfastAlone', 'teaVisit') });
@@ -313,8 +337,9 @@ export function buildLife(scene, ctx) {
   const guestChair = add(O.chairSpindle(std('#5d5a54', 0.6)), T.x - 0.28, 0, T.z + 0.82, {
     spans: union(chain('friendsYoung', 'friendsYoungAfter'), chain('party', 'partyAfter'), chain('games', 'gamesAfter'), W('lunch'), W('teaVisit')), ry: Math.PI - 0.12, settle: [0, 0, 0.2],
     update(age, p, o) {
-      const late = SCENES.some((s) => (s.kind === 'partyAfter' || s.kind === 'gamesAfter' || s.kind === 'friendsYoungAfter') && age > s.a - 0.02 && age < s.b + 0.05);
-      if (late) { o.position.z += 0.16; o.position.x -= 0.06; o.rotation.y += 0.35; }
+      // pushed back from the table by the morning after: the change happens across the same handoff as the table's
+      const late = Math.max(0, ...LATE.map((sp) => eased(age, sp)));
+      o.position.z += 0.16 * late; o.position.x -= 0.06 * late; o.rotation.y += 0.35 * late;
     },
   });
   add(O.garment('#6a5a4a', { seed: 12, back: 0.36 }), 0, 0.95, -0.21, { follow: guestChair, spans: many('party', 'games', 'lunch', 'teaVisit'), settle: [0, 0.05, 0] });
@@ -336,16 +361,22 @@ export function buildLife(scene, ctx) {
   add(O.babyMonitor(), -1.88, 0.55, 0.36, { in: 33.8, out: 37.4, ry: 0.3 });
 
   // ================================================================ floor: shoes, the cradle, toys
-  add(O.shoes('sneaker', '#efeae2'), -1.86, 0, 0.7, { out: END, fo: 0.25, ry: 0, wob: { p: 0.006, r: 0.04, f: 1.3, seed: 61 } });
+  add(O.leatherShoes('#6b4226'), -1.86, 0, 0.7, { out: END, fo: 0.25, ry: 0, wob: { p: 0.006, r: 0.04, f: 1.3, seed: 61 } });
   // theirs: on date nights, then every day; gone soon after they are
-  add(O.shoes('boot', '#4a2e20'), -1.6, 0, 0.72, { spans: [...SCENES.filter((s) => s.kind === 'date').map((s) => [s.a, s.b, 0.06, 0.06]), [27.9, LOSS + 0.3, 0.4, 0.2]], ry: 0, wob: { p: 0.004, r: 0.04, f: 1.2, seed: 62 } });
+  add(O.heels('#2b2424'), -1.6, 0, 0.79, { spans: [...win('date'), [27.9, LOSS + 0.3, 0.4, 0.2]], ry: 0, wob: { p: 0.004, r: 0.015, f: 1.2, seed: 62 } });
   add(O.shoes('sneaker', '#c9442e'), -1.73, 0, 1.12, { spans: VISITS_SHOES, ry: -0.1, scale: [[34.9, 0.42], [37, 0.55], [40, 0.68], [45, 0.86], [49, 1.02], [90, 1.04]], wob: { p: 0.006, r: 0.06, f: 1.4, seed: 63 } });
 
   const cradle = add(O.mosesBasket(), -1.72, 0, 1.5, { in: 33.75, out: 35.6, fi: 0.5, fo: 0.5, ry: 0.08, settle: [0, 0, 0.2] });
   // the bunny is put down somewhere new each time, never carried through the air:
   // in the cradle, on the rug, by the table, on the bed, and finally on top of the shelf
   const bunnyAt = [[33.9, 35.7, -1.72, 0.61, 1.47, 0.4], [35.9, 36.9, -0.85, 0.014, 2.0, -0.6], [37.05, 38.2, -0.78, 0.014, 1.95, 0.9], [38.35, 52.9, -2.18, 0.6, 0.72, 0.2], [53.1, Infinity, 2.95, 2.335, 0.2, -0.3]];
-  const bunnies = bunnyAt.map(([a, b, x, y, z, ry], i) => add(O.bunny(), x, y, z, { in: a, out: b, fi: 0.1, fo: 0.1, ry, onBed: true, settle: [0, 0.04, 0], allow: i === 0 ? [cradle] : [] }));
+  // each move happens in turn: it is gone from one place before it is seen in the next, meeting halfway between
+  const meet = bunnyAt.slice(1).map(([a], i) => (bunnyAt[i][1] + a) / 2), BW = 30;
+  const bunnies = bunnyAt.map(([a, b, x, y, z, ry], i) => {
+    const a0 = i ? meet[i - 1] : a, b0 = i < meet.length ? PACE.shift(meet[i], -BW) : b;
+    const sp = [a0, b0, PACE.shift(a0, BW) - a0, i < meet.length ? meet[i] - b0 : 0.4];
+    return add(O.bunny(), x, y, z, { spans: [sp], ry, onBed: true, settle: [0, 0.04, 0], allow: i === 0 ? [cradle] : [] });
+  });
   add(O.blocks(3), -0.7, 0.014, 2.35, {
     spans: [[35.3, 39.6, 0.4, 0.4], ...GRANDCHILD.map((g) => [g + 0.05, g + 0.33, 0.08, 0.08])], settle: [0, 0.04, 0],
     path: [[35.3, [-0.7, 0.014, 2.35], 0], [36.1, [-1.3, 0.014, 2.9], 1.2], [37.0, [-1.35, 0.014, 2.3], 1.6], [38.6, [-1.25, 0.014, 2.5], 1.6], [66, [-0.85, 0.014, 2.5], 0.7], [68, [-0.5, 0.014, 2.2], 2.4]],
@@ -419,8 +450,7 @@ export function buildLife(scene, ctx) {
   };
   fillShelf(3, 24, 25, 22, BOOK_COLORS, { end: 0.75 });
   fillShelf(4, 24, 25, 10, BOOK_COLORS, { start: 0.42, end: 0.95 });
-  add(O.radio(), 2.6, shelfY[4], 0.18, { out: 65.9, fo: 0.2 });
-  add(O.speaker(), 2.6, shelfY[4], 0.18, { in: 66.1, fi: 0.2 }); // the radio, replaced
+  add(O.radio(), 2.6, shelfY[4], 0.18, {}); // the old player, kept all their life
   fillShelf(2, 28.2, 30.5, 30, BOOK_COLORS, { end: 0.98 });
   fillShelf(5, 28.6, 31.5, 30, BOOK_COLORS, { end: 0.7 });
   fillShelf(3, 29.5, 31, 8, BOOK_COLORS, { start: 0.76, end: 0.99 });
@@ -448,9 +478,9 @@ export function buildLife(scene, ctx) {
   // a guitar, left behind when they go
   add(O.guitar(), 2.0, 0, 0.56, { in: 46.6, ry: -0.5, settle: [0, 0, 0.15] });
   // leaving home: boxes, briefly
-  add(O.cardboardBox(0.5, 0.36, 0.38, true), -0.35, 0, 1.55, { in: 51.9, out: 52.85, fi: 0.15, fo: 0.15, ry: 0.2, settle: [0, 0, 0] });
-  add(O.cardboardBox(0.42, 0.3, 0.32), -0.95, 0, 1.3, { in: 52.1, out: 52.95, fi: 0.15, fo: 0.15, ry: -0.3, settle: [0, 0, 0] });
-  add(O.cardboardBox(0.42, 0.3, 0.32), -0.94, 0.3, 1.31, { in: 52.3, out: 52.9, fi: 0.12, fo: 0.12, ry: -0.2, settle: [0, 0.05, 0] });
+  add(O.cardboardBox(0.5, 0.36, 0.38, true), -0.35, 0, 1.55, { spans: stay(51.9, 52.85), ry: 0.2, settle: [0, 0, 0] });
+  add(O.cardboardBox(0.42, 0.3, 0.32), -0.95, 0, 1.3, { spans: stay(52.1, 52.95), ry: -0.3, settle: [0, 0, 0] });
+  add(O.cardboardBox(0.42, 0.3, 0.32), -0.94, 0.3, 1.31, { spans: stay(52.3, 52.8), ry: -0.2, settle: [0, 0.05, 0] }); // the top box goes before the one it sits on
 
   // photographs take the drawings' place above the nightstand
   add(O.frame(photoTexture('hills', 11), 0.15, 0.2, { border: 0.016, mat: 0.03, color: '#2a221c' }), -1.92, 1.42, 0, { in: 49.2, settle: [0, -0.03, 0.03] });
@@ -490,17 +520,17 @@ export function buildLife(scene, ctx) {
 
   // ================================================================ life between the milestones
   // 29: someone moves in — boxes, briefly
-  add(O.cardboardBox(0.5, 0.36, 0.38, true), -0.35, 0, 1.55, { in: 28.85, out: 29.25, fi: 0.08, fo: 0.1, ry: -0.15, settle: [0, 0, 0] });
-  add(O.cardboardBox(0.42, 0.3, 0.32), -0.95, 0, 1.3, { in: 28.9, out: 29.3, fi: 0.08, fo: 0.1, ry: 0.25, settle: [0, 0, 0] });
+  add(O.cardboardBox(0.5, 0.36, 0.38, true), -0.35, 0, 1.55, { spans: stay(28.85, 29.25), ry: -0.15, settle: [0, 0, 0] });
+  add(O.cardboardBox(0.42, 0.3, 0.32), -0.95, 0, 1.3, { spans: stay(28.9, 29.3), ry: 0.25, settle: [0, 0, 0] });
   // the room is repainted once the child is older; the paint things wait on a sheet
-  add(O.paintJob(), -0.6, 0, 0.78, { in: 49.6, out: 50.25, fi: 0.08, fo: 0.08, ry: 0.1, settle: [0, 0, 0] });
+  add(O.paintJob(), -0.6, 0, 0.78, { spans: win('paint'), ry: 0.1, settle: [0, 0, 0] });
   // pale patches and tape marks where drawings hung, until the repaint (and the grandchild's, never painted over)
   for (const [k, x, y, a, b] of taped) {
     const until = b > 50 ? Infinity : 49.95;
     add(O.wallTrace(0.22, 0.165), x, y, 0, { noCollide: true, in: b + 0.3, out: until, fi: 0.2, fo: 0.08, settle: [0, 0, 0] });
   }
   // trips away
-  for (const tr of TRIPS) add(O.suitcase(), -0.72, 0, 1.3, { in: tr, out: tr + 0.3, fi: 0.06, fo: 0.06, ry: 0.35, settle: [0, 0, 0] });
+  for (const sp of win('trip')) add(O.suitcase(), -0.72, 0, 1.3, { spans: [sp], ry: 0.35, settle: [0, 0, 0] });
   // things brought home from those trips stay
   add(O.sailboatModel(), 3.38, 2.335, 0.17, { in: 55.6, settle: [0, 0.03, 0] });
   add(O.carvedBird(), -1.9, 0.55, 0.12, { in: 63.9, ry: 0.8, settle: [0, 0.03, 0] });
@@ -520,10 +550,19 @@ export function buildLife(scene, ctx) {
   const curtBase = ctx.curtainMat.color.clone(), curtNew = C('#e6e2da');
   const shadeBase = ctx.shadeMat.color.clone(), shadeNew = C('#d9c7ad');
   const spotBase = ctx.spot.color.clone(), spotNew = C('#ffc790');
+  // late in life the table becomes the centre of the room: the pendant's pool gathers a little and sits over the middle of the table
+  const spotAngle = ctx.spot.angle, spotRadius = ctx.spot.shadow.radius, spotAim = ctx.spot.target.position.clone(), spotAimLate = V(T.x - 0.05, 0, T.z + 0.03);
+
+  // one arrangement hands over to the next: overlap where things can share the moment, in turn where they would stand in each other's place
+  life.prepareAudit();
+  life.handoffs = life.resolveHandoffs({ pace: PACE });
 
   return {
     life,
-    update(age, t) {
+    // still: the age has not changed since the last call, so everything that is a function of age alone is already
+    // right; only what moves with the clock (the plant's sway, the candle's flicker) is brought up to date
+    update(age, t, vel, still = false) {
+      if (still) { hero.update(age, t); for (const f of extras) f(age, t); return; }
       life.update(age);
       hero.update(age, t);
       ivyA.update(age); iv2.update(age);
@@ -544,6 +583,14 @@ export function buildLife(scene, ctx) {
       ctx.curtainMat.color.copy(curtBase).lerp(curtNew, smooth(57.9, 58.2, age));
       ctx.shadeMat.color.copy(shadeBase).lerp(shadeNew, smooth(61.9, 62.2, age));
       ctx.spot.color.copy(spotBase).lerp(spotNew, smooth(59.9, 60.2, age));
+      // As the room empties, the table becomes its centre: the pendant's pool narrows a little and settles on the middle
+      // of the table, and the lamp keeps its own strength while everything around it goes on dimming (ctx.tableFocus,
+      // daylight.js). Its shadows keep the softness they had: the PCF radius follows the narrowing of the shadow camera.
+      const late = smooth(78, 86, age);
+      ctx.tableFocus = late;
+      ctx.spot.angle = lerp(spotAngle, 0.72, late);
+      ctx.spot.shadow.radius = spotRadius * Math.tan(lerp(spotAngle, 0.75, late)) / Math.tan(ctx.spot.angle);
+      ctx.spot.target.position.lerpVectors(spotAim, spotAimLate, late);
       // 90: the lamps are off, then the candle goes out
       ctx.off = smooth(89.8, 89.92, age);
       ctx.duvetMat.color.copy(duvetBase).lerp(duvetLater, smooth(30, 31, age)).lerp(C('#d6cfc2'), smooth(58, 59, age));

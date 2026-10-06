@@ -246,43 +246,95 @@ export function buildRoom(scene, ctx) {
     emissive: C('#ff9c5c'), emissiveIntensity: 0.14, bumpMap: linenBump(3), bumpScale: 0.25, depthWrite: false, sheen: 0.5,
   });
   ctx.curtainMat = curtainMat;
+  // The cloth moves on the GPU: the vertex shader displaces each vertex of the flat 40 x 56 grid by the same folds and
+  // breeze as before, and rebuilds its normal exactly as computeVertexNormals() did on the CPU (the area-weighted sum of
+  // the face normals of the grid triangles around it), so the shading and the moving shadows are unchanged.
+  // The top edge keeps its approved look, which came from that CPU version: there the top row of vertices came out as
+  // NaN (a float rounding left them a hair above the hem's origin, and pow() of a negative number is NaN), so the top
+  // band of triangles was never drawn and the band below it, whose normals were NaN, came out black after the post
+  // NaN guard. Here the same two bands are left out and drawn black on purpose.
+  const CW = 0.48, CH = 2.88, CX = 40, CY = 56;
+  const curtU = { uCurtS: { value: new THREE.Vector3() }, uCurtG: { value: new THREE.Vector4(CW, CH, CX, CY) } };
+  const CURTAIN_GLSL = /* glsl */`
+    attribute float aCurtPhase;
+    uniform vec3 uCurtS; // the breeze's three clocks, each wrapped to one turn
+    uniform vec4 uCurtG; // width, height, columns, rows
+    varying float vCurtRow;
+    vec3 curtainP(float bx, float by) {
+      float ph = aCurtPhase, W = uCurtG.x, H = uCurtG.y;
+      float down = max(-by / H, 0.0); // 0 top .. 1 bottom
+      float u = bx / W;
+      float folds = sin(u * 26.0 + ph) * 0.035 + sin(u * 61.0 + ph * 3.0) * 0.008;
+      float breeze = sin(uCurtS.x + ph + down * 1.4) * 0.6 + sin(uCurtS.y + u * 3.0 + ph) * 0.4;
+      float sway = breeze * 0.055 * pow(down, 1.6);
+      return vec3(bx * (1.0 - 0.12 * down) + sin(uCurtS.z + ph) * 0.02 * down * down, by, folds * (0.85 + 0.3 * down) + sway + 0.04 * down * down);
+    }
+    vec3 curtainAt(float i, float j) { return curtainP(i * (uCurtG.x / uCurtG.z) - uCurtG.x * 0.5, -j * (uCurtG.y / uCurtG.w)); }
+  `;
+  // grid position of this vertex, its displaced position, and the row for the fragment shader
+  const CURTAIN_POS = /* glsl */`
+    float ci = floor((position.x + uCurtG.x * 0.5) / (uCurtG.x / uCurtG.z) + 0.5);
+    float cj = floor(-position.y / (uCurtG.y / uCurtG.w) + 0.5);
+    vec3 curtP = curtainP(position.x, position.y);
+    vCurtRow = cj;
+  `;
+  const curtainMatShader = (sh) => {
+    sh.uniforms.uCurtS = curtU.uCurtS; sh.uniforms.uCurtG = curtU.uCurtG;
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\n' + CURTAIN_GLSL)
+      .replace('#include <beginnormal_vertex>', CURTAIN_POS + /* glsl */`
+        // the PlaneGeometry triangles around this vertex: cell (cx, cy) is split into (a, b, d) and (b, c, d), with
+        // a = (cx, cy), b = (cx, cy + 1), c = (cx + 1, cy + 1), d = (cx + 1, cy); each face adds cross(C - B, A - B)
+        vec3 pR = curtainAt(ci + 1.0, cj), pL = curtainAt(ci - 1.0, cj), pD = curtainAt(ci, cj + 1.0), pU = curtainAt(ci, cj - 1.0);
+        vec3 pLD = curtainAt(ci - 1.0, cj + 1.0), pRU = curtainAt(ci + 1.0, cj - 1.0);
+        vec3 curtN = vec3(0.0);
+        if (ci < uCurtG.z && cj < uCurtG.w) curtN += cross(pR - pD, curtP - pD);
+        if (ci > 0.0 && cj < uCurtG.w) curtN += cross(curtP - pLD, pL - pLD) + cross(curtP - pD, pLD - pD);
+        if (ci < uCurtG.z && cj > 0.0) curtN += cross(pRU - curtP, pU - curtP) + cross(pRU - pR, curtP - pR);
+        if (ci > 0.0 && cj > 0.0) curtN += cross(pU - curtP, pL - curtP);
+        vec3 objectNormal = normalize(curtN);`)
+      .replace('#include <begin_vertex>', 'vec3 transformed = curtP;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying float vCurtRow;')
+      .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\nif (vCurtRow < 1.0) discard;')
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\nif (vCurtRow < 2.0) gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);');
+  };
+  curtainMat.onBeforeCompile = curtainMatShader;
+  curtainMat.customProgramCacheKey = () => 'curtain';
+  // their shadows: the same displaced cloth (also as the alpha hash's seed, as before), the top band left out
+  const curtainDepthShader = (sh) => {
+    sh.uniforms.uCurtS = curtU.uCurtS; sh.uniforms.uCurtG = curtU.uCurtG;
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\n' + CURTAIN_GLSL)
+      .replace('#include <begin_vertex>', CURTAIN_POS + '\nvec3 transformed = curtP;\n#ifdef USE_ALPHAHASH\nvPosition = curtP;\n#endif');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying float vCurtRow;')
+      .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\nif (vCurtRow < 1.0) discard;');
+  };
   const curtains = [];
   const mkCurtain = (cx, w, phase) => {
-    const W = w, H = 2.88, sx = 40, sy = 56;
+    const W = w, H = CH, sx = CX, sy = CY;
     const g = new THREE.PlaneGeometry(W, H, sx, sy);
     g.translate(0, -H / 2, 0);
-    const base = g.attributes.position.array.slice();
+    g.setAttribute('aCurtPhase', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count).fill(phase), 1));
     const m = mesh(g, curtainMat, cx, 2.95, 0.09);
     m.castShadow = true; m.receiveShadow = false; m.userData.noAO = true;
+    m.frustumCulled = false; // as before: it was never culled (its bounds were NaN)
     m.customDepthMaterial = new THREE.MeshDepthMaterial({ alphaHash: true, opacity: 0.45 });
+    m.customDepthMaterial.onBeforeCompile = curtainDepthShader;
+    m.customDepthMaterial.customProgramCacheKey = () => 'curtainDepth';
     m.renderOrder = 3;
     room.add(m);
-    curtains.push({ m, base, W, H, phase });
+    curtains.push({ m, W, H, phase });
   };
-  mkCurtain(D.x0 - 0.28, 0.48, 0.0);
-  mkCurtain(D.x1 + 0.52, 0.48, 2.1);
+  mkCurtain(D.x0 - 0.28, CW, 0.0);
+  mkCurtain(D.x1 + 0.52, CW, 2.1);
   const rod = mesh(new THREE.CylinderGeometry(0.01, 0.01, 3.1), iron, (D.x0 + D.x1) / 2 + 0.12, 2.965, 0.09);
   rod.rotation.z = Math.PI / 2; shade(rod); room.add(rod);
 
-  const updateCurtains = (t) => {
-    for (const c of curtains) {
-      const p = c.m.geometry.attributes.position;
-      const a = p.array;
-      for (let i = 0; i < p.count; i++) {
-        const bx = c.base[i * 3], by = c.base[i * 3 + 1];
-        const down = -by / c.H; // 0 top .. 1 bottom
-        const u = bx / c.W;
-        const folds = Math.sin(u * 26 + c.phase) * 0.035 + Math.sin(u * 61 + c.phase * 3) * 0.008;
-        const breeze = (Math.sin(t * 0.55 + c.phase + down * 1.4) * 0.6 + Math.sin(t * 1.27 + u * 3 + c.phase) * 0.4);
-        const sway = breeze * 0.055 * Math.pow(down, 1.6);
-        a[i * 3] = bx * (1 - 0.12 * down) + Math.sin(t * 0.4 + c.phase) * 0.02 * down * down;
-        a[i * 3 + 1] = by;
-        a[i * 3 + 2] = folds * (0.85 + 0.3 * down) + sway + 0.04 * down * down;
-      }
-      p.needsUpdate = true;
-      c.m.geometry.computeVertexNormals();
-    }
-  };
+  // the clocks wrap on the CPU (in double precision), so the motion stays as smooth after hours as in the first minute
+  const TAU = Math.PI * 2;
+  const updateCurtains = (t) => { curtU.uCurtS.value.set((t * 0.55) % TAU, (t * 1.27) % TAU, (t * 0.4) % TAU); };
 
   // ------------------------------------------------------------ static furniture
   const oak = woodTexture([30, 38, 40], 5);

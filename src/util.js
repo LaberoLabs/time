@@ -77,17 +77,17 @@ export function union(...lists) {
   }
   return out;
 }
-// A minus holes; edges created by a hole fade quickly (hf)
+// A minus holes [h0, h1, fadeOut?, fadeIn?]; edges created by a hole fade over the hole's own widths (default hf)
 export function subtract(A, holes, hf = 0.05) {
   let cur = A.map((s) => s.slice());
-  for (const [h0, h1] of holes) {
+  for (const [h0, h1, f0 = hf, f1 = hf] of holes) {
     const next = [];
     for (const s of cur) {
       const [a, b, fi, fo] = s;
-      if (h0 >= b && h0 < b + fo) { next.push([a, b, fi, Math.max(0.02, h0 - b)]); continue; } // finish fading before the hole
+      if (h0 >= b && h0 < b + fo) { next.push([a, b, fi, Math.min(fo, h0 + f0 - b)]); continue; } // already leaving: gone by the time the hole's own edge is
       if (h1 <= a || h0 >= b) { next.push(s); continue; }
-      if (h0 > a) next.push([a, h0, fi, hf]);
-      if (h1 < b) next.push([h1, b, hf, fo]);
+      if (h0 > a) next.push([a, h0, fi, f0]);
+      if (h1 < b) next.push([h1, b, f1, fo]);
     }
     cur = next;
   }

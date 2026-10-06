@@ -102,7 +102,7 @@ export function applyDaylight(s, ctx, ext, renderer, scene) {
   const lamps = s.lamps * (1 - (ctx.off || 0));
   const dim = ctx.dim || 0;
   ctx.lampLight.intensity = 1.4 * lamps; ctx.shadeMat.emissiveIntensity = 1.6 * lamps;
-  ctx.spot.intensity = 9 * (1 - 0.45 * dim) * lamps; ctx.pendantGlow.intensity = 0.35 * (1 - 0.5 * dim) * lamps;
+  ctx.spot.intensity = 9 * (1 - 0.45 * dim * (1 - (ctx.tableFocus || 0))) * lamps; // the table lamp holds as it becomes the room's centre ctx.pendantGlow.intensity = 0.35 * (1 - 0.5 * dim) * lamps;
   ctx.pendantInner.emissiveIntensity = 0.45 * lamps; ctx.bulbMat.color.copy(ctx.bulbBase).multiplyScalar(Math.max(0.02, lamps));
   // sky, water, city
   const u = ext.skyU;

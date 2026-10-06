@@ -1,7 +1,7 @@
 // Plants that grow with the household. Pure functions of age.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { std, mesh, leafGeo, tube, shade, C } from './build.js';
+import { std, mesh, leafGeo, tube, shade, alphaIsOne, C } from './build.js';
 import { pot } from './objects.js';
 import { leafTexture } from './tex.js';
 import { rng, smooth, keys, clamp, lerp } from './util.js';
@@ -40,6 +40,8 @@ export function heroPlant(parent, at) {
     shade(g);
     bl.customDepthMaterial = new THREE.MeshDepthMaterial({ alphaHash: true, side: THREE.DoubleSide });
     root.add(g);
+    // a leaf at full opacity is a solid two-sided surface: one pass draws the same pixels as the back-then-front pair
+    mat.userData.singlePass = alphaIsOne(mat);
     leaves.push({ g, pet, blade, bl, mat, base: mat.color.clone(), petMat: petMesh.material, birth, life, az, size: 0.42 + r() * 0.2, len: 0.32 + r() * 0.35, tilt: 0.25 + r() * 0.35, seed: r() });
   }
 
@@ -79,6 +81,8 @@ export function heroPlant(parent, at) {
         L.blade.scale.set(s, s, s);
         L.mat.color.copy(L.base).lerp(leafOld, old);
         L.mat.opacity = 1 - gone;
+        const single = L.mat.userData.singlePass && L.mat.opacity >= 1; // while it withers away: the two-pass fade
+        if (L.mat.forceSinglePass !== single) { L.mat.forceSinglePass = single; L.mat.needsUpdate = true; } // (re-pick the two-sided shader)
         L.bl.customDepthMaterial.opacity = 1 - gone;
       }
     },
