@@ -36,6 +36,7 @@ const _solidTex = new WeakMap();
 function texSolid(t) {
   if (!t) return true;
   if (_solidTex.has(t)) return _solidTex.get(t);
+  if (t.userData.opaque) { _solidTex.set(t, true); return true; } // opaque by construction (tex.js toTex): no read-back needed
   let ok = false;
   const im = t.image;
   if (im && im.getContext) {

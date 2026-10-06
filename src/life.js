@@ -22,7 +22,8 @@ const END = 89.6; // the last things put down are never picked up again
 const VISITS = [[60.6, 60.95], [66.0, 66.35], [70.1, 70.45], [77.0, 77.4], [84.0, 84.4]].map(([a, b]) => [a, b, 0.1, 0.1]);
 const VPRE = VISITS.filter(([a]) => a < LOSS).map(([a, b]) => [a, b]);
 const VPOST = VISITS.filter(([a]) => a > LOSS).map(([a, b]) => [a, b]);
-const GRANDCHILD = [66.0, 70.1];
+const PARTNERS = [66.0, 70.1]; // the son's partner comes along from the second visit on
+const GRANDCHILD = [70.1];     // and their child, the third time
 const BIRTHDAYS = [34.7]; // the first one only; growing up is told by their things
 const DINNERS = [54.0, 57.4]; // one dinner party, one games night
 const TRIPS = [30.25, 37.08, 55.15, 63.35, 71.5];
@@ -47,7 +48,7 @@ sc(49.6, 50.25, 'day', 'paint', { table: false, w: 3 });
 sc(51.9, 53.0, 'day', 'moveout', { table: false, w: 3.5 });
 DINNERS.forEach((d, i) => { const games = i === 1; sc(d, d + 0.32, games ? 'night' : 'dusk', games ? 'games' : 'party', { w: 5 }); sc(d + 0.38, d + 0.55, 'dawn', games ? 'gamesAfter' : 'partyAfter', { w: 5 }); });
 TRIPS.forEach((t) => sc(t, t + 0.3, 'day', 'trip', { table: false, w: 2 }));
-VPRE.forEach(([a, b]) => sc(a, b, 'day', 'lunch', { grand: GRANDCHILD.includes(a), w: 3 }));
+VPRE.forEach(([a, b]) => sc(a, b, 'day', 'lunch', { partner: PARTNERS.includes(a), grand: GRANDCHILD.includes(a), w: 3 }));
 sc(67.8, 68.05, 'golden', 'soup2');
 sc(65.2, 65.45, 'morning', 'breakfastOld');
 sc(73.15, 73.45, 'golden', 'lastEvening');
@@ -316,7 +317,11 @@ export function buildLife(scene, ctx) {
   put(O.plateWith('roast', 0.13, 22), -0.25, 0.26, { spans: W('lunch'), ry: -0.4 });
   put(O.servingDish('saladBowl', 23), 0.22, 0.14, { spans: W('lunch') });
   put(O.waterGlass(0.6), 0.0, 0.36, { spans: W('lunch') });
-  put(O.kidCup(), -0.52, 0.34, { spans: SCENES.filter((s) => s.kind === 'lunch' && s.grand).map((s) => sceneSpan(s)) });
+  const lunchWith = (flag) => SCENES.filter((s) => s.kind === 'lunch' && s[flag]).map((s) => sceneSpan(s));
+  put(O.plateWith('roast', 0.105, 31), -0.6, 0.355, { spans: lunchWith('partner') }); // the son's partner, at the front beside him
+  put(O.waterGlass(0.6), -0.8, 0.3, { spans: lunchWith('partner') });
+  put(O.plateWith('kid', 0.1, 32), -0.44, -0.25, { spans: lunchWith('grand') });               // their child, across the table
+  put(O.kidCup(), -0.7, -0.36, { spans: lunchWith('grand') });
   // quiet suppers for two in later years
   put(O.bowlWith('soup', 24), -0.15, -0.25, { spans: many('soup2', 'supperAlone') });
   put(O.bowlWith('soup', 25), -0.62, 0.0, { spans: W('soup2') });
@@ -343,6 +348,15 @@ export function buildLife(scene, ctx) {
     },
   });
   add(O.garment('#6a5a4a', { seed: 12, back: 0.36 }), 0, 0.95, -0.21, { follow: guestChair, spans: many('party', 'games', 'lunch', 'teaVisit'), settle: [0, 0.05, 0] });
+  // the son's partner gets a chair of her own at the free place, and their child the child's chair (the one from before: guard and tray long gone)
+  add(O.chairSpindle(std('#7a6f60', 0.6)), T.x - 0.78, 0, T.z + 0.82, {
+    spans: lunchWith('partner'), ry: Math.PI - 0.06, settle: [0, 0, 0.2], wob: { p: 0.015, r: 0.04, f: 0.9, seed: 71 },
+  });
+  const kc2 = O.kidChair(); kc2.guard.visible = false;
+  add(kc2.g, T.x - 0.68, 0, T.z - 0.8, {
+    dynamicBox: true, spans: lunchWith('grand'), ry: 0.04, settle: [0, 0, -0.25], wob: { p: 0.015, r: 0.04, f: 0.9, seed: 72 },
+    update() { kc2.seat.position.y = 0.52; },
+  });
 
 
   // ================================================================ bed
@@ -364,6 +378,9 @@ export function buildLife(scene, ctx) {
   add(O.leatherShoes('#6b4226'), -1.86, 0, 0.7, { out: END, fo: 0.25, ry: 0, wob: { p: 0.006, r: 0.04, f: 1.3, seed: 61 } });
   // theirs: on date nights, then every day; gone soon after they are
   add(O.heels('#2b2424'), -1.6, 0, 0.79, { spans: [...win('date'), [27.9, LOSS + 0.3, 0.4, 0.2]], ry: 0, wob: { p: 0.004, r: 0.015, f: 1.2, seed: 62 } });
+  // visitors' shoes, by the others, only while they are there: the son's partner from the second visit, their child the third time
+  add(O.loafers('#34405a'), -1.36, 0, 1.13, { spans: SCENES.filter((s) => s.kind === 'lunch' && s.partner).map((s) => sceneSpan(s)), ry: 0.08, wob: { p: 0.006, r: 0.05, f: 1.4, seed: 64 } });
+  add(O.shoes('sneaker', '#d9b04c', 0.6), -1.42, 0, 1.47, { spans: SCENES.filter((s) => s.kind === 'lunch' && s.grand).map((s) => sceneSpan(s)), ry: -0.25, wob: { p: 0.006, r: 0.08, f: 1.4, seed: 65 } });
   add(O.shoes('sneaker', '#c9442e'), -1.73, 0, 1.12, { spans: VISITS_SHOES, ry: -0.1, scale: [[34.9, 0.42], [37, 0.55], [40, 0.68], [45, 0.86], [49, 1.02], [90, 1.04]], wob: { p: 0.006, r: 0.06, f: 1.4, seed: 63 } });
 
   const cradle = add(O.mosesBasket(), -1.72, 0, 1.5, { in: 33.75, out: 35.6, fi: 0.5, fo: 0.5, ry: 0.08, settle: [0, 0, 0.2] });

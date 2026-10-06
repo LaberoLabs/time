@@ -75,10 +75,20 @@ export function makePlayer(io, dur, marks = []) {
 // ------------------------------------------------------------------ the score in the browser
 export function makeMusic(pace) {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  let fwd = null, rev = null, d1 = 0, dur = 0, player = null, synced = false;
+  let fwd = null, rev = null, d1 = 0, dur = 0, player = null, synced = false, error = null, readyAt = 0;
   const u = (a) => pace.units(a), u1 = u(A1);
 
-  Promise.all(SRC.map((s) => fetch(s).then((r) => r.arrayBuffer()).then((b) => ctx.decodeAudioData(b)))).then(([b1, b2]) => {
+  // Anything that stops the score from loading is named in the console (and in state.error): which file, which step.
+  const fail = (what, e) => { error = `${what}: ${(e && e.message) || e}`; console.error('[TIME audio] ' + error); };
+  const load = (s) => fetch(s)
+    .then((r) => {
+      if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText} (${r.headers.get('content-type')})`);
+      return r.arrayBuffer();
+    }, (e) => { throw new Error('download failed: ' + e); })
+    .then((b) => ctx.decodeAudioData(b).catch((e) => { throw new Error(`decode failed, ${b.byteLength} bytes: ${(e && e.message) || e}`); }))
+    .catch((e) => { fail(s, e); throw e; });
+
+  Promise.all(SRC.map(load)).then(([b1, b2]) => {
     const sr = ctx.sampleRate, gap = Math.round(GAP * sr), n = b1.length + gap + b2.length;
     const nc = Math.max(b1.numberOfChannels, b2.numberOfChannels);
     const f = ctx.createBuffer(nc, n, sr), r = ctx.createBuffer(nc, n, sr);
@@ -105,16 +115,20 @@ export function makeMusic(pace) {
       },
       stopAt({ src }, t) { try { src.stop(t === Infinity ? ctx.currentTime + 1e5 : t); } catch (e) { /* already stopped */ } },
     }, dur, [d1, ...T2.filter(([a]) => a === 73.5 || a === END).map(([, t]) => d1 + GAP + t)]);
-  });
+    readyAt = performance.now();
+  }).catch((e) => { if (!error) fail('building the score', e); });
 
   // Unlocking sound. Browsers start audio only from a genuine gesture (a click, tap or key; never a wheel or trackpad
-  // scroll), so every such gesture anywhere resumes it, and a scroll resumes it wherever the browser allows. Until then a
-  // scroll brings up a quiet cue that goes for good once sound is on.
+  // scroll), so every such gesture anywhere resumes it, and a scroll resumes it wherever the browser allows. Until then
+  // a quiet cue (index.html) invites a click; it goes for good once sound is on.
   const cue = document.getElementById('sound');
   if (cue && matchMedia('(pointer: coarse)').matches) cue.textContent = 'TAP ANYWHERE FOR SOUND';
+  let warned = false;
+  const resume = (via) => ctx.resume().catch((e) => console.warn(`[TIME audio] resume() refused (${via}): ${(e && e.message) || e}`));
   const gesture = () => {
     if (ctx.state === 'running') return;
-    ctx.resume();
+    resume('gesture');
+    if (!warned) setTimeout(() => { if (ctx.state !== 'running' && !warned) { warned = true; console.warn(`[TIME audio] still ${ctx.state} 1.5 s after a click/tap/key`); } }, 1500);
     const s = ctx.createBufferSource(); s.buffer = ctx.createBuffer(1, 1, ctx.sampleRate); s.connect(ctx.destination); s.start(); // iOS
   };
   for (const e of ['pointerdown', 'pointerup', 'mousedown', 'click', 'touchstart', 'touchend', 'keydown']) addEventListener(e, gesture, { capture: true, passive: true });
@@ -122,10 +136,12 @@ export function makeMusic(pace) {
   addEventListener('scroll', () => {
     if (ctx.state === 'running') return;
     const ua = navigator.userActivation;
-    if ((!ua || ua.hasBeenActive) && performance.now() - tried > 500) { tried = performance.now(); ctx.resume(); }
-    if (cue) cue.classList.remove('gone');
+    if ((!ua || ua.hasBeenActive) && performance.now() - tried > 500) { tried = performance.now(); resume('scroll'); }
   }, { passive: true });
-  ctx.onstatechange = () => { if (ctx.state === 'running' && cue) cue.classList.add('gone'); };
+  // The cue is there from the first frame and goes, for good, the first time sound is on.
+  const unlocked = () => { if (cue) cue.classList.add('gone'); };
+  if (ctx.state === 'running') unlocked();
+  ctx.onstatechange = () => { if (ctx.state === 'running') unlocked(); };
 
   // the score position (seconds) at an age
   const posAt = (age) => {
@@ -144,7 +160,7 @@ export function makeMusic(pace) {
       if (!synced) { synced = true; player.sync(epilogue ? dur : T); return; }
       player.tick(T, epilogue);
     },
-    get state() { return { ctx: ctx.state, loaded: !!player, d1, dur, pos: player ? player.pos : 0, playing: player ? player.playing : 0 }; },
+    get state() { return { ctx: ctx.state, loaded: !!player, d1, dur, pos: player ? player.pos : 0, playing: player ? player.playing : 0, error, readyAt }; },
     posAt,
   };
 }

@@ -2,14 +2,31 @@
 import * as THREE from 'three';
 import { rng } from './util.js';
 
+// Textures whose arguments repeat are generated once and shared. Only for textures that are fully determined by their
+// arguments (each draws from its own seeded rng) and that nothing alters after creation.
+const _memo = new Map();
+const memo = (name, fn) => (...a) => {
+  const k = name + JSON.stringify(a);
+  if (!_memo.has(k)) _memo.set(k, fn(...a));
+  return _memo.get(k);
+};
+// a CSS colour that cannot carry alpha (so a full fill with it is opaque)
+const solidCss = (c) => typeof c === 'string' && /^(#[0-9a-f]{3}|#[0-9a-f]{6}|hsl\(|rgb\()/i.test(c);
+
 export function canvas(w, h = w) {
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
   return [c, c.getContext('2d')];
 }
 
-export function toTex(c, { srgb = true, repeat = [1, 1], aniso = 8 } = {}) {
+export function toTex(c, { srgb = true, repeat = [1, 1], aniso = 8, opaque = false } = {}) {
   const t = new THREE.CanvasTexture(c);
+  // opaque by construction: the canvas starts with an opaque fill of its whole area and everything drawn after is
+  // plain source-over (tex.js never changes the composite operation), so no texel can ever be less than opaque.
+  // Lets alphaIsOne() (build.js) skip reading the canvas back. Used ONLY for canvases drawn with fillRect alone:
+  // for canvases drawn with strokes, paths or filters, that read-back also makes Chrome rasterise them there and then,
+  // and without it their antialiased edges came out slightly different from load to load. Those keep the read-back.
+  if (opaque) t.userData.opaque = true;
   t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.repeat.set(repeat[0], repeat[1]);
@@ -114,7 +131,7 @@ export function plasterTextures() {
     wrapBlob(bx, S, r() * S, r() * S, 6 + r() * 36, `rgba(${v},${v},${v},0.05)`);
   }
   noiseFill(bx, S, S, 0.1, 1.5, r);
-  return { map: toTex(c), bump: toTex(b, { srgb: false }) };
+  return { map: toTex(c, { }), bump: toTex(b, { srgb: false }) };
 }
 
 // ---------------------------------------------------------------- generic wood grain
@@ -135,11 +152,11 @@ export function woodTexture(base = [32, 42, 34], seed = 3, S = 1024, streaks = 1
     x.stroke();
   }
   noiseFill(x, S, S, 0.04, 2, r);
-  return toTex(c);
+  return toTex(c, { });
 }
 
 // ---------------------------------------------------------------- fabrics
-export function linenBump(seed = 5, S = 512) {
+function linenBump_(seed = 5, S = 512) {
   const r = rng(seed);
   const [c, x] = canvas(S);
   x.fillStyle = '#808080'; x.fillRect(0, 0, S, S);
@@ -151,7 +168,7 @@ export function linenBump(seed = 5, S = 512) {
   return toTex(c, { srgb: false, repeat: [6, 6] });
 }
 
-export function knitTexture(color = '#8a4a32', seed = 9) {
+function knitTexture_(color = '#8a4a32', seed = 9) {
   const S = 512, r = rng(seed);
   const [c, x] = canvas(S);
   x.fillStyle = color; x.fillRect(0, 0, S, S);
@@ -203,7 +220,7 @@ export function rugTexture() {
     const px = r() * W, py = r() * H, a = r() * 6.28;
     x.beginPath(); x.moveTo(px, py); x.lineTo(px + Math.cos(a) * 5, py + Math.sin(a) * 5); x.stroke();
   }
-  return toTex(c);
+  return toTex(c, { });
 }
 
 // a later rug: flat-woven stripes, muted
@@ -216,7 +233,7 @@ export function rugTexture2() {
   while (y < H - 60) { const h = 14 + r() * 70; x.fillStyle = cols[Math.floor(r() * cols.length)]; x.globalAlpha = 0.7 + r() * 0.3; x.fillRect(40, y, W - 80, h); y += h + 6 + r() * 20; }
   x.globalAlpha = 1;
   for (let i = 0; i < 40000; i++) { x.fillStyle = r() < 0.5 ? 'rgba(255,250,240,0.08)' : 'rgba(30,20,10,0.08)'; x.fillRect(r() * W, r() * H, 3, 1); }
-  return toTex(c);
+  return toTex(c, { });
 }
 
 // ---------------------------------------------------------------- art
@@ -245,7 +262,7 @@ export function inkPrint() {
     x.beginPath(); x.arc(W * 0.5 + (r() - 0.5) * 320, H * 0.45 + (r() - 0.5) * 380, r() * 3, 0, 7); x.fill();
   }
   x.globalAlpha = 1;
-  return toTex(c);
+  return toTex(c, { });
 }
 
 export function abstractPrint(seed = 41) {
@@ -261,7 +278,7 @@ export function abstractPrint(seed = 41) {
   }
   x.globalAlpha = 1;
   noiseFill(x, W, H, 0.05, 2, r);
-  return toTex(c);
+  return toTex(c, { });
 }
 
 // "photographs": no people — places, the sea, light.
@@ -312,7 +329,7 @@ export function photoTexture(kind, seed = 50) {
   v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(40,20,10,0.35)');
   x.fillStyle = v; x.fillRect(0, 0, W, H);
   noiseFill(x, W, H, 0.08, 1.5, r);
-  return toTex(c);
+  return toTex(c, { });
 }
 
 // Child drawings — crayon on paper.
@@ -371,13 +388,13 @@ export function childDrawing(kind, seed = 60) {
       crayon(x, r, arc(fx, fy, 22, 0, 6.3, 14), ['#d84b8a', '#f0b52c', '#7a4fb0', '#d8432f'][i], 10, 4);
     }
   }
-  return toTex(c);
+  return toTex(c, { });
 }
 
 // Book spines atlas: each book picks a color; spine details drawn.
 export const BOOK_COLORS = ['#8a3b2c', '#2f4858', '#c9a46a', '#4b5d3f', '#d9cbb0', '#6b2f3a', '#1f2a36', '#b8653c', '#e2dccb', '#5a6e7c', '#97845c', '#3d3a36', '#a8452f', '#cbb995'];
 export const KID_BOOK_COLORS = ['#e2523a', '#f2b437', '#3f8fd0', '#5bb35a', '#e86fa0', '#f07c2a'];
-export function spineTexture(color, seed) {
+function spineTexture_(color, seed) {
   const r = rng(seed);
   const [c, x] = canvas(64, 256);
   x.fillStyle = color; x.fillRect(0, 0, 64, 256);
@@ -386,7 +403,7 @@ export function spineTexture(color, seed) {
   for (let i = 0; i < bands; i++) x.fillRect(0, 20 + r() * 200, 64, 3 + r() * 6);
   x.fillRect(22, 70 + r() * 40, 20, 60 + r() * 50); // title block
   noiseFill(x, 64, 256, 0.15, 1.5, r);
-  return toTex(c, { aniso: 4 });
+  return toTex(c, { aniso: 4, opaque: solidCss(color) });
 }
 
 // sheer curtain: alpha weave with a denser header and hem
@@ -401,13 +418,13 @@ export function sheerAlpha() {
   x.fillStyle = 'rgb(255,255,255)'; x.fillRect(0, 34, W, 3); x.fillRect(0, H - 25, W, 2);
   return toTex(c, { srgb: false });
 }
-export function clothMap(base = '#f3eee6', seed = 4, stripes = true) {
+function clothMap_(base = '#f3eee6', seed = 4, stripes = true) {
   const S = 512, r = rng(seed);
   const [c, x] = canvas(S);
   x.fillStyle = base; x.fillRect(0, 0, S, S);
   if (stripes) for (let i = 0; i < S; i += 16) { x.fillStyle = 'rgba(120,100,80,0.035)'; x.fillRect(i, 0, 6, S); }
   noiseFill(x, S, S, 0.05, 1.5, r); noiseFill(x, S, S, 0.04, 1.5, r, true);
-  return toTex(c, { repeat: [3, 3] });
+  return toTex(c, { repeat: [3, 3], opaque: solidCss(base) });
 }
 export function leafTexture(seed = 1) {
   const W = 128, H = 256, r = rng(seed);
@@ -419,10 +436,10 @@ export function leafTexture(seed = 1) {
   for (let j = 10; j < H; j += 11 + r() * 5) for (const s of [-1, 1]) { x.beginPath(); x.moveTo(W / 2, j); x.quadraticCurveTo(W / 2 + s * 30, j - 6, W / 2 + s * 62, j - 22); x.stroke(); }
   noiseFill(x, W, H, 0.12, 1.5, r);
   for (let k = 0; k < 6; k++) { x.fillStyle = 'rgba(150,130,60,0.15)'; x.beginPath(); x.arc(r() * W, r() * H, 2 + r() * 5, 0, 7); x.fill(); } // small blemishes
-  return toTex(c);
+  return toTex(c, { });
 }
 // coat cloth: outer fabric on the hanging back, lining on the short front, a collar band over the rail
-export function garmentMap(color, lining, frontFrac, topFrac, seed = 1) {
+function garmentMap_(color, lining, frontFrac, topFrac, seed = 1) {
   const W = 256, H = 512, r = rng(seed);
   const [c, x] = canvas(W, H);
   // canvas row 0 = v 1 = end of the back (hem)
@@ -436,7 +453,7 @@ export function garmentMap(color, lining, frontFrac, topFrac, seed = 1) {
   x.beginPath(); x.moveTo(W / 2, 14); x.lineTo(W / 2, yTop - 6); x.stroke(); // centre back seam
   x.setLineDash([]);
   noiseFill(x, W, H, 0.08, 1.5, r); noiseFill(x, W, H, 0.05, 1.5, r, true);
-  const t = toTex(c); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t;
+  const t = toTex(c, { }); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t;
 }
 
 // Soft radial blob for contact shadows
@@ -450,3 +467,8 @@ export function blobTexture() {
   _blob = toTex(c, { srgb: false });
   return _blob;
 }
+export const linenBump = memo('linenBump', linenBump_);
+export const knitTexture = memo('knitTexture', knitTexture_);
+export const spineTexture = memo('spineTexture', spineTexture_);
+export const clothMap = memo('clothMap', clothMap_);
+export const garmentMap = memo('garmentMap', garmentMap_);

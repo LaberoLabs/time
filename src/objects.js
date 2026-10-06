@@ -419,6 +419,30 @@ export function leatherShoes(color = '#6b4226') {
   shade(g); g.add(contact(0.34, 0.4, 0.55));
   return g;
 }
+// a visitor's: slip-on loafers, no laces, a strap across the vamp
+export function loafers(color = '#34405a') {
+  const g = G();
+  const L = 0.272, W = 0.096;
+  const width = (w) => W * (0.74 + 0.26 * Math.sin(Math.PI * Math.min(1, w * 1.12))) * (w > 0.8 ? Math.sqrt(Math.max(0, 1 - Math.pow((w - 0.8) / 0.21, 2))) * 0.8 + 0.2 : 1);
+  const top = (w) => (w < 0.28 ? 0.066 : w < 0.62 ? 0.066 - (w - 0.28) * 0.07 : 0.042 - (w - 0.62) * 0.05);
+  const up = std(color, 0.42, { bumpMap: linenBump(15), bumpScale: 0.05 });
+  const soleM = std('#2a211b', 0.7), lining = std('#241c17', 0.9), strap = std(color, 0.4);
+  const upper = lastGeo(L, width, () => 0.014, top);
+  const soleGeo = lastGeo(L + 0.008, (w) => width(w) + 0.006, () => 0, () => 0.014);
+  for (const s of [-1, 1]) {
+    const sh = G();
+    sh.add(mesh(upper, up));
+    sh.add(mesh(soleGeo, soleM));
+    sh.add(mesh(rbox(width(0.12) + 0.004, 0.012, 0.06, 0.005), soleM, 0, 0.006, -L / 2 + 0.035)); // heel block
+    const open = mesh(new THREE.CircleGeometry(0.028, 18).rotateX(-Math.PI / 2), lining, 0, 0.0795, -0.075);
+    open.scale.set(1, 1, 1.4); sh.add(open);
+    const band = mesh(rbox(0.07, 0.006, 0.02, 0.003), strap, 0, 0.0535, 0.04); band.rotation.x = -0.3; sh.add(band);
+    sh.position.x = s * 0.06; sh.rotation.y = s * 0.04; sh.position.z = s > 0 ? 0.03 : 0;
+    g.add(sh);
+  }
+  shade(g); g.add(contact(0.33, 0.39, 0.55));
+  return g;
+}
 // hers: court shoes on a slim heel, the insole showing
 export function heels(color = '#2b2424') {
   const g = G();
