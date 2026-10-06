@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TIME</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Inter:wght@300;400&display=swap" rel="stylesheet" />
+  <style>:root{--ink:#fff4e6eb;--dim:#ffeedc8c}html,body{color:var(--ink);background:#0d0907;margin:0}body{overscroll-behavior:none}#scroll{height:5400vh}canvas#c{opacity:0;width:100vw;height:100vh;transition:opacity 2.4s;display:block;position:fixed;inset:0}canvas#c.on{opacity:1}.ui{pointer-events:none;font-family:Inter,-apple-system,Helvetica,sans-serif;position:fixed;inset:0}.ui header{position:absolute;top:38px;left:44px}.title{letter-spacing:.42em;font-family:Cormorant Garamond,Iowan Old Style,Georgia,serif;font-size:30px;font-weight:400}.sub{color:var(--dim);letter-spacing:.02em;margin-top:6px;font-family:Cormorant Garamond,Iowan Old Style,Georgia,serif;font-size:17px;font-style:italic;font-weight:300}.age{align-items:baseline;gap:16px;display:flex;position:absolute;bottom:40px;left:44px}.age .lbl{letter-spacing:.32em;color:var(--dim);font-size:11px}.age .num{font-variant-numeric:lining-nums tabular-nums;min-width:1.2em;font-family:Cormorant Garamond,Iowan Old Style,Georgia,serif;font-size:64px;font-weight:300;line-height:1}.age .rule{transform-origin:0;background:#fff0e159;height:1px;position:absolute;bottom:-12px;left:0;right:0}.hint{letter-spacing:.34em;color:var(--dim);white-space:nowrap;font-size:10.5px;transition:opacity 1.6s;position:absolute;bottom:46px;left:50%;transform:translate(-50%)}.hint.gone{opacity:0}#black{opacity:0;pointer-events:none;background:#000;position:fixed;inset:0}.ui>*{text-shadow:0 1px 18px #00000059}.fadein{opacity:0;transition:opacity 2.4s .6s}.ready .fadein{opacity:1}@media (width<=640px){.ui header{top:24px;left:22px}.age{bottom:28px;left:22px}.title{font-size:22px}.age .num{font-size:48px}.hint{bottom:96px}}</style>
+  <script type="module" crossorigin src="./assets/index-pKS0VPyW.js"></script>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div class="ui">
+    <header class="fadein">
+      <div class="title">TIME</div>
+      <div class="sub">A lifetime told through a single room.</div>
+    </header>
+    <div class="hint fadein" id="hint">SCROLL TO MOVE THROUGH TIME</div>
+    <div class="hint gone" id="sound">CLICK ANYWHERE FOR SOUND</div>
+  </div>
+  <div id="black"></div>
+  <div id="scroll"></div>
+</body>
+</html>
